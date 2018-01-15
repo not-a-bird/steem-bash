@@ -34,7 +34,7 @@ from other scripts, and then the functions within it can be invoked directly.
 Current functionality:
 
  * get_profile
-Gets the specified users' profile as JSON.
+Gets the specified user's profile as JSON.
 
  * get_bank
 Gets the value of the specified user's wallet, including STEEM, SP, SBD, and
