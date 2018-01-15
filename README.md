@@ -44,6 +44,16 @@ savings (but not delegations, since these aren't owned by the user).
 Gets the current rate in STEEM for each million vesting shares.  This is useful
 in computing the SP for a given user.
 
+# Requirements
+
+Uses the following programs in addition to Bash:
+
+* bc
+* grep
+* jq
+* wget
+* zcat
+
 # Contributing
 Fork me!  I'll evaluate pull requests as quickly as I can.
 
