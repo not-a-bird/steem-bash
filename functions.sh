@@ -13,7 +13,7 @@ error(){
 # Do a wget against the target, provide the document to submit on standard in.
 get_profile(){
     local WHOM=${1}
-    wget "https://steemit.com/@${WHOM}.json" -O - 2>/dev/null l| zcat
+    wget "https://steemit.com/@${WHOM}.json" -O - 2>/dev/null | zcat
 }
 
 ##
