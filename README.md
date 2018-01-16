@@ -44,6 +44,12 @@ savings (but not delegations, since these aren't owned by the user).
 Gets the current rate in STEEM for each million vesting shares.  This is useful
 in computing the SP for a given user.
 
+ * get_currency
+Gets the price for a given crypto currency from cryptocompare.com.
+
+ * get_steempower_for_vests
+Gets the steem power based for an input number of vesting shares.
+
 # Requirements
 
 Uses the following programs in addition to Bash:
