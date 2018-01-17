@@ -22,7 +22,7 @@ else
         TICKERINFO="$(printf "%$((COL))s" "${TICKERINFO}")"
         WIDTH=${#TICKERINFO}
         for ((i=2;i<${#TICKERINFO};i++)); do
-            echo -ne "\r" "$(cut -c$i-$((COL-1)) <<< $TICKERINFO)"
+            echo -ne "\r" "$(cut -c$i-$((i+COL-1)) <<< $TICKERINFO)"
             sleep 0.25
         done
     done
