@@ -19,8 +19,7 @@ error(){
 math(){
     local PROBLEM=${1}
     local SCALE=${2:-3}
-
-    echo "scale=${SCALE}; $@" | bc -l
+    printf "%.${SCALE}f" $(echo "$PROBLEM" | bc -l )
 }
 
 ##
@@ -28,7 +27,26 @@ math(){
 #
 # Scrape steemd for the value in steem of a million vesting shares.
 get_steem_per_mvest(){
-    wget "https://steemd.com" -O - 2>/dev/null | grep -o '<samp>steem_per_mvests</samp></th></tr><tr><td><i>[0-9]\+\.[0-9]\+</i>' | grep -o '[0-9]\+\.[0-9]\+'
+    local RESULT=$(mktemp)
+    rpc_get_dynamic_global_properties > "${RESULT}"
+    local TOTAL_VESTING_FUND_STEEM=$(jq ".total_vesting_fund_steem" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    local TOTAL_VESTING_SHARES=$(jq ".total_vesting_shares" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    echo $(math "${TOTAL_VESTING_FUND_STEEM}/${TOTAL_VESTING_SHARES}*1000000")
+    rm "${RESULT}"
+}
+
+##
+#    get_steem_per_vest
+# Get the amount of steem per vesting share, this avoids multiplying by a
+# million so that the calculate of steempower_for_vests wont need to do extra
+# math.
+get_steem_per_vest(){
+    local RESULT=$(mktemp)
+    rpc_get_dynamic_global_properties > "${RESULT}"
+    local TOTAL_VESTING_FUND_STEEM=$(jq ".total_vesting_fund_steem" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    local TOTAL_VESTING_SHARES=$(jq ".total_vesting_shares" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    echo $(math "${TOTAL_VESTING_FUND_STEEM}/${TOTAL_VESTING_SHARES}" 10)
+    rm "${RESULT}"
 }
 
 ##
@@ -43,13 +61,23 @@ get_price(){
 }
 
 ##
+#    get_prices <TOKEN ...> [CURRENCY]
+# Ask cryptocompare.com for the prices of multiple tokens in CURRENCY.
+get_prices(){
+    local TOKENS=${1}
+    local CURRENCY=${2:-USD}
+    TOKENS=$(sed 's/ /,/g' <<< $TOKENS)
+    wget "https://min-api.cryptocompare.com/data/pricemulti?fsyms=${TOKENS}&tsyms=${CURRENCY}" -O - 2>/dev/null
+}
+
+##
 #     get_steempower_for_vests <VESTS>
 #
 # Calculates steem power provided a number of vesting shares.
 get_steempower_for_vests(){
     local VESTS=${1}
-    local STEEM_PER_MVEST=$(get_steem_per_mvest)
-    local STEEM_POWER=$(math "${VESTING_SHARES}*${STEEM_PER_MVEST}/1000000.0")
+    local STEEM_PER_VEST=$(get_steem_per_vest)
+    local STEEM_POWER=$(math "${VESTS}*${STEEM_PER_VEST}" 10)
     echo "${STEEM_POWER}"
 }
 
@@ -73,13 +101,14 @@ get_bank(){
     local SUCCESS=0
     local CURRENCY=${2:-USD}
 
-    if get_profile "${WHOM}" > "${WHERE}" ; then
-        local STEEMV=$(get_price STEEM "${CURRENCY}")
-        local SBDV=$(get_price SBD "${CURRENCY}")
-        local BALANCE=$(jq '.user.balance' < "${WHERE}" | cut -f2 -d'"' |  cut -f1 -d" ")
-        local SBD_BALANCE=$(jq '.user.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-        local VESTING_SHARES=$(jq '.user.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-        local STEEM_SAVINGS=$(jq '.user.savings_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
+        local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
+        local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
+        local SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
+        local BALANCE=$(jq '.balance' < "${WHERE}" | cut -f2 -d'"' |  cut -f1 -d" ")
+        local SBD_BALANCE=$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+        local VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+        local STEEM_SAVINGS=$(jq '.savings_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
         local STEEM_POWER=$(get_steempower_for_vests "$VESTING_SHARES")
         local BANK=$(math "(${BALANCE}+${STEEM_POWER}+${STEEM_SAVINGS}) * ${STEEMV} + ${SBD_BALANCE} * ${SBDV}")
         echo "${BANK}"
@@ -107,6 +136,16 @@ rpc_invoke(){
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
     local DATA="{ \"jsonrpc\": \"2.0\", \"method\": \"${METHOD}\", \"params\": [${ARGS},] \"id\": 1 }"
     wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null | jq '.result'
+}
+
+##
+# Like rpc_invoke, but doesn't pull out the result element.
+rpc_raw(){
+    local METHOD=${1}
+    local ARGS=${2:-null}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    local DATA="{ \"jsonrpc\": \"2.0\", \"method\": \"${METHOD}\", \"params\": [${ARGS},] \"id\": 1 }"
+    wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null
 }
 
 #
@@ -300,17 +339,64 @@ rpc_get_conversion_requests(){
 }
 
 ##
+#    rpc_get_current_median_history_price [ENDPOINT]
+#
+# Original documentation from [web](http://steem.readthedocs.io/en/latest/steem.html):
+# Get the average STEEM/SBD price.
+#
+# This price is based on moving average of witness reported price feeds.
+rpc_get_current_median_history_price(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_current_median_history_price "${ENDPOINT}"
+}
+
+##
+#    rpc_get_discussions_by_active <LIMIT> <TAG> <TRUNCATE> [ENDPOINT]
+#  You can pass empty strings for LIMIT and TRUNCATE, they will default to 10
+#  and 0.  A value of 0 for truncate means to return the entire post body.
+rpc_get_discussions_by_active(){
+    local LIMIT=${1:-10}
+    local TAG=${2}
+    local TRUNCATE=${3:-0}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_active "{ \"limit\": ${LIMIT}, \"tag\": \"${TAG}\", \"truncate_body\": $TRUNCATE }" "${ENDPOINT}"
+}
+
+##
+#    rpc_get_discussions_by_author_before_date <AUTHOR> <PERMLINK> <DATE> <LIMIT>
+# Gets top level posts by the specified author before the specified date.  It's
+# unclear how the permlink effects it, but it must be valid.  The date field
+# accepts at least the format "2018-01-17T01:12:01".  Limit defaults to zero.
+rpc_get_discussions_by_author_before_date(){
+    local AUTHOR=${1}
+    local PERMLINK=${2}
+    local DATE=${3}
+    local LIMIT=${4:-10}
+    local ENDPOINT=${5:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_author_before_date "\"${AUTHOR}\", \"${PERMLINK}\", \"${DATE}\", ${LIMIT}" "${ENDPOINT}"
+}
+
+##
+#     get_discussions_by_cashout <TAG> <LIMIT> [ENDPOINT]
+#
+# FIXME: Gets the top level posts by a query object, which is confusing because
+# the docs say otherwise.
+rpc_get_discussions_by_cashout(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_cashout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+
+##
 # TODO:
 #             "cancel_all_subscriptions": 3, (?)
 #             "get_account_bandwidth": 45, (what is the account type field?)
 #             "get_account_references": 35, (needs to be refactored for steem?)
 #             "get_comment_discussions_by_payout": 8, (arguments?)
-#             "get_conversion_requests": 39,
+#             "get_conversion_requests": 39, (implemented but not sure what it's supposed to do...)
 #             "get_current_median_history_price": 28,
-#             "get_discussions_by_active": 11,
-#             "get_discussions_by_author_before_date": 63,
 #             "get_discussions_by_blog": 17,
-#             "get_discussions_by_cashout": 12,
 #             "get_discussions_by_children": 14,
 #             "get_discussions_by_comments": 18,
 #             "get_discussions_by_created": 10,
@@ -320,6 +406,46 @@ rpc_get_conversion_requests(){
 #             "get_discussions_by_promoted": 19,
 #             "get_discussions_by_trending": 9,
 #             "get_discussions_by_votes": 13,
+
+##
+#    get_dynamic_global_properties [ENDPOINT]
+# Fetches a number of statistics:
+#  {
+#    "id": 0,
+#    "head_block_number": 19046204,
+#    "head_block_id": "01229f3cb9a0f793fd358c038f0e4282accfbdc8",
+#    "time": "2018-01-17T03:39:03",
+#    "current_witness": "thecryptodrive",
+#    "total_pow": 514415,
+#    "num_pow_witnesses": 172,
+#    "virtual_supply": "263884106.823 STEEM",
+#    "current_supply": "262777204.387 STEEM",
+#    "confidential_supply": "0.000 STEEM",
+#    "current_sbd_supply": "6339230.254 SBD",
+#    "confidential_sbd_supply": "0.000 SBD",
+#    "total_vesting_fund_steem": "197564777.341 STEEM",
+#    "total_vesting_shares": "404524405665.394862 VESTS",
+#    "total_reward_fund_steem": "0.000 STEEM",
+#    "total_reward_shares2": "0",
+#    "pending_rewarded_vesting_shares": "277879180.161400 VESTS",
+#    "pending_rewarded_vesting_steem": "134993.008 STEEM",
+#    "sbd_interest_rate": 0,
+#    "sbd_print_rate": 10000,
+#    "average_block_size": 11604,
+#    "maximum_block_size": 65536,
+#    "current_aslot": 19108381,
+#    "recent_slots_filled": "340282366920938463463374607431768211455",
+#    "participation_count": 128,
+#    "last_irreversible_block_num": 19046187,
+#    "max_virtual_bandwidth": "5152702464000000000",
+#    "current_reserve_ratio": 390,
+#    "vote_power_reserve_rate": 10
+#  }
+rpc_get_dynamic_global_properties(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_dynamic_global_properties
+}
+
 #             "get_dynamic_global_properties": 25,
 #             "get_escrow": 43,
 #             "get_expiring_vesting_delegations": 49,
