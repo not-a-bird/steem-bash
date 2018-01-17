@@ -377,7 +377,7 @@ rpc_get_discussions_by_author_before_date(){
 }
 
 ##
-#     get_discussions_by_cashout <TAG> <LIMIT> [ENDPOINT]
+#     rpc_get_discussions_by_cashout <TAG> <LIMIT> [ENDPOINT]
 #
 # FIXME: Gets the top level posts by a query object, which is confusing because
 # the docs say otherwise.
@@ -389,23 +389,110 @@ rpc_get_discussions_by_cashout(){
 }
 
 ##
+#     rpc_get_expiring_vesting_delegations <account> <date> <limit> [ENDPOINT]
+rpc_get_expiring_vesting_delegations(){
+    local ACCOUNT=${1}
+    local DATE=${2}
+    local LIMIT=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+    rpc_invoke get_expiring_vesting_delegations "\"${ACCOUNT}\", \"${DATE}\", ${LIMIT}" "${ENDPOINT}"
+}
+
+##
+#    rpc_get_discussions_by_blog
+rpc_get_discussions_by_blog(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_blog  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_children
+rpc_get_discussions_by_children(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_children  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_comments
+rpc_get_discussions_by_comments(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_comments  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_created
+rpc_get_discussions_by_created(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_created  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_feed
+rpc_get_discussions_by_feed(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_feed  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_hot
+rpc_get_discussions_by_hot(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_hot  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_payout
+rpc_get_discussions_by_payout(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_payout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_promoted
+rpc_get_discussions_by_promoted(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_promoted  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_trending
+rpc_get_discussions_by_trending(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_trending  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_votes
+rpc_get_discussions_by_votes(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_votes  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+##
+#    rpc_get_discussions_by_payout
+rpc_get_discussions_by_payout(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_discussions_by_payout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+}
+
+##
 # TODO:
 #             "cancel_all_subscriptions": 3, (?)
 #             "get_account_bandwidth": 45, (what is the account type field?)
 #             "get_account_references": 35, (needs to be refactored for steem?)
 #             "get_comment_discussions_by_payout": 8, (arguments?)
-#             "get_conversion_requests": 39, (implemented but not sure what it's supposed to do...)
-#             "get_current_median_history_price": 28,
-#             "get_discussions_by_blog": 17,
-#             "get_discussions_by_children": 14,
-#             "get_discussions_by_comments": 18,
-#             "get_discussions_by_created": 10,
-#             "get_discussions_by_feed": 16,
-#             "get_discussions_by_hot": 15,
-#             "get_discussions_by_payout": 6,
-#             "get_discussions_by_promoted": 19,
-#             "get_discussions_by_trending": 9,
-#             "get_discussions_by_votes": 13,
 
 ##
 #    get_dynamic_global_properties [ENDPOINT]
@@ -446,12 +533,41 @@ rpc_get_dynamic_global_properties(){
     rpc_invoke get_dynamic_global_properties
 }
 
-#             "get_dynamic_global_properties": 25,
-#             "get_escrow": 43,
-#             "get_expiring_vesting_delegations": 49,
-#             "get_feed_history": 27,
-#             "get_hardfork_version": 30,
-#             "get_key_references": 33,
+##
+#    get_escrow <account> <id> [ENDPOINT]
+rpc_get_escrow(){
+    local ACCOUNT=${1}
+    local ID=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_escrow "\"${ACCOUNT}\", ${ID}" "${ENDPOINT}"
+}
+
+##
+#     rpc_get_expiring_vesting_delegtion <account> <start> <limit>
+rpc_get_expiring_vesting_delegtions(){
+    local ACCOUNT=${1}
+    local START=${2}
+    local LIMIT=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+    rpc_invoke get_expiring_vesting_delegations "\"${ACCOUNT}\", \"${START}\", 10" "${ENDPOINT}"
+}
+
+##
+#     rpc_get_feed_history [ENDPOINT]
+rpc_get_feed_history(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_feed_history
+}
+##
+#     rpc_get_hardfork_version [ENDPOINT]
+rpc_get_hardfork_version(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_hardfork_version
+}
+
+
+
+#             "get_key_references": 33, (deprecated, use ... soemthing else...)
 #             "get_liquidity_queue": 52,
 #             "get_miner_queue": 71,
 #             "get_next_scheduled_hardfork": 31,
