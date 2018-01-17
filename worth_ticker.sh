@@ -11,16 +11,18 @@ fi
 . "${WHEREAMI}"/functions.sh
 
 if [ -z "${1}" ] ; then
-    error "No user specified!  Specify a user (without the @) to see the total worth of their account!"
+    error "No user specified!  Specify one or more users to see their account worth in a ticker."
 else
     tput civis
     while true; do
-        TICKERINFO="      "
         for USER in $@ ; do
-            TICKERINFO=${TICKERINFO}$(echo "$USER: $(get_bank $USER)      ")
+            TICKERINFO=${TICKERINFO}$(echo "$USER: $(get_bank $USER)   ")
         done
-        for ((i=1;i<${#TICKERINFO};i++)); do
-            echo -ne "\r" "$(cut -c$i- <<< $TICKERINFO)"
+        COL=$(tput cols)
+        TICKERINFO="$(printf "%$((COL))s" "${TICKERINFO}")"
+        WIDTH=${#TICKERINFO}
+        for ((i=2;i<${#TICKERINFO};i++)); do
+            echo -ne "\r" "$(cut -c$i-$((COL-1)) <<< $TICKERINFO)"
             sleep 0.25
         done
     done
