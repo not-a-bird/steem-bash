@@ -29,8 +29,10 @@ get_ticker_string(){
         local STEEM_POWER=$(get_steempower_for_vests "$VESTING_SHARES")
         local STEEMS=$(math "${STEEM_POWER}+${STEEM_SAVINGS}+${BALANCE}" 2)
         local BANK=$(math "(${BALANCE}+${STEEM_POWER}+${STEEM_SAVINGS}) * ${STEEMV} + ${SBD_BALANCE} * ${SBDV}")
-        echo "${WHOM}: ${BANK} [SBD: ${SBD_BALANCE} (${CURRENCY}: $(math "${SBDV}*${SBD_BALANCE}" 2)) STEEM: ${STEEMS} (${CURRENCY}: $(math "${STEEMS} * ${STEEMV}" 2)]"
+        local BANKFMT=$(printf "%'0.2f" "${BANK}")
+        echo "${WHOM}: ${BANKFMT} ${CURRENCY} [$(math "${SBDV}*${SBD_BALANCE}" 2) ${CURRENCY} (${SBD_BALANCE} SBD at ${SBDV} ${CURRENCY}) STEEM: $(math "${STEEMS} * ${STEEMV}" 2) ${CURRENCY} (${STEEMS} STEEM at ${STEEMV} ${CURRENCY})]"
     fi
+    rm "${WHERE}"
 }
 
 if [ -z "${1}" ] ; then
@@ -39,14 +41,15 @@ else
     tput civis
     while true; do
         echo -ne '\r.'
+        TICKERINFO=
         for USER in $@ ; do
             TICKERINFO=${TICKERINFO}"$(get_ticker_string "${USER}")    "
         done
         COL=$(tput cols)
         SPACES=$(printf "%$((COL-2))s" " ")
-        TICKERINFO="${SPACES} ${TICKERINFO}"
+        TICKERINFO="${SPACES} ${TICKERINFO}  "
         for ((i=2;i<${#TICKERINFO};i++)); do
-            echo -ne "\r" "$(cut -c$i-$((i+COL-3)) <<< $TICKERINFO)"
+            echo -ne "\r" "$(cut -c$i-$((i+COL-3)) <<< "${TICKERINFO}  ")"
             sleep 0.25
         done
     done
