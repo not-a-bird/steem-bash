@@ -16,7 +16,7 @@ else
     tput civis
     while true; do
         for USER in $@ ; do
-            TICKERINFO=${TICKERINFO}$(echo "$USER: $(get_bank $USER)   ")
+            TICKERINFO=${TICKERINFO}$(printf "$USER: %'0.2f   " "$(get_bank $USER)")
         done
         COL=$(tput cols)
         TICKERINFO="$(printf "%$((COL))s" "${TICKERINFO}")"
