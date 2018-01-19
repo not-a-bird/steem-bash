@@ -94,8 +94,8 @@ else
         fi
         TICKERINFO=
         for USER in $@ ; do
-            TICKERINFO="${TICKERINFO}${USER} "
-            if rpc_get_accounts "  ${USER}" | jq '.[0]' > "${WHERE}" ; then
+            TICKERINFO="${TICKERINFO}  ${USER} "
+            if rpc_get_accounts "${USER}" | jq '.[0]' > "${WHERE}" ; then
                 STEEM_BALANCE=$(jq '.balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
                 SBD_BALANCE=$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
                 VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
