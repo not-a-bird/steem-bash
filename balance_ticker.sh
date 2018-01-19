@@ -3,6 +3,8 @@
 ##
 # This script fetches the total worth of the specified users and displays it in the style of a stock ticker.
 
+trap "tput cnorm" exit
+
 WHEREAMI=$(dirname ${BASH_SOURCE[0]})
 if [ ${WHEREAMI} != '.' ] ; then
     WHEREAMI=$(readlink ${WHEREAMI})
@@ -35,23 +37,16 @@ get_ticker_string(){
     rm "${WHERE}"
 }
 
+
 if [ -z "${1}" ] ; then
     error "No user specified!  Specify one or more users to see their account worth in a ticker."
 else
-    tput civis
     while true; do
         echo -ne '\r.'
         TICKERINFO=
         for USER in $@ ; do
-            TICKERINFO=${TICKERINFO}"$(get_ticker_string "${USER}")    "
+            TICKERINFO=${TICKERINFO}"$(get_ticker_string "${USER}")"
         done
-        COL=$(tput cols)
-        SPACES=$(printf "%$((COL-2))s" " ")
-        TICKERINFO="${SPACES} ${TICKERINFO}  "
-        for ((i=2;i<${#TICKERINFO};i++)); do
-            echo -ne "\r" "$(cut -c$i-$((i+COL-3)) <<< "${TICKERINFO}  ")"
-            sleep 0.25
-        done
+        tickline "${TICKERINFO}"
     done
-    tput cnorm
 fi
