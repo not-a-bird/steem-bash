@@ -564,16 +564,6 @@ rpc_get_escrow(){
 }
 
 ##
-#     rpc_get_expiring_vesting_delegtion <account> <start> <limit>
-rpc_get_expiring_vesting_delegtions(){
-    local ACCOUNT=${1}
-    local START=${2}
-    local LIMIT=${3}
-    local ENDPOINT=${4:-${RPC_ENDPOINT}}
-    rpc_invoke get_expiring_vesting_delegations "\"${ACCOUNT}\", \"${START}\", 10" "${ENDPOINT}"
-}
-
-##
 #     rpc_get_feed_history [ENDPOINT]
 rpc_get_feed_history(){
     local ENDPOINT=${1:-${RPC_ENDPOINT}}
@@ -636,4 +626,50 @@ get_payout(){
     local PAYOUTS=$(rpc_get_discussions_by_author_before_date "${AUTHOR}" '' "${WHEN}" "${LIMIT}" "${ENDPOINT}" | grep -Po '"pending_payout_value":.*?[^\\]",' | cut -f2 -d:  | cut -f2 -d'"' | cut -f1 -d' ' | xargs)
     VALUE=$(math "$(sed 's/ /+/g' <<< "${PAYOUTS}")" 2)
     echo "${VALUE}"
+}
+
+##
+#    get_sp <username> [ENDPOINT]
+get_sp(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    local WHERE=$(mktemp)
+    local SUCCESS=1
+    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
+        local VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+        echo "$(get_steempower_for_vests "$VESTING_SHARES")"
+        SUCCESS=0
+    fi
+    rm "${WHERE}"
+    return "${SUCCESS}"
+}
+
+##
+#     get_steem <username> [ENDPOINT]
+get_steem(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    local WHERE=$(mktemp)
+    local SUCCESS=1
+    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
+        echo "$(jq '.balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")"
+        SUCCESS=0
+    fi
+    rm "${WHERE}"
+    return "${SUCCESS}"
+}
+
+##
+#     get_sbd <username> [ENDPOINT]
+get_sbd(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    local WHERE=$(mktemp)
+    local SUCCESS=1
+    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
+        echo "$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")"
+        SUCCESS=0
+    fi
+    rm "${WHERE}"
+    return "${SUCCESS}"
 }

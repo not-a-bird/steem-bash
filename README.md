@@ -14,17 +14,60 @@ steemit.com.
 
 # Using
 
-Currently the only exposed functionality is the script for fetching a given
-user's wallet value from the command line.  It can be invoked thusly:
+Import `functions.sh` in your script and then call any functions you want.
 
-    worth.sh [account-name]
+## Examples
 
-And it will produce the value in USD for the specified account name.
+There are some example scripts, they all take a minimum, one or more account names.
 
-For example:
+* `worth.sh` - original one-shot example for fetching account value
+* `balances.sh` - an uber example ticker or one-shot script
+
+The `worth.sh` script is a very basic example that only supports a user name.
+
+Example:
 
     $ worth.sh not-a-bird
     1577.120
+
+The `balances.sh` supports more options and multiple user names.
+
+    Usage: 
+        balances.sh [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h] <USER> [USER ...]"
+
+    Get and display balance information about the specified user.
+
+    - b show balances (sbd, steem, savings) [default when no options specified]
+    - c CURRENCY (default is USD)
+    - e specify service node endpoint
+    - h show (this) help
+    - p include pending payouts in output
+    - s include SP in output
+    - t enable stock ticker output
+    - w include total account worth in output
+
+Examples:
+
+    $ balances.sh -b not-a-bird
+    not-a-bird  1.899 STEEM 2.027 SBD 1.000 Savings
+
+    $ balances.sh -w not-a-bird
+    not-a-bird  worth: 1,157.77 USD
+
+    $ balances.sh -c LTC -w not-a-bird
+    not-a-bird  worth: 6.00 LTC
+
+    $ balances.sh -p not-a-bird
+    not-a-bird  pending payout: 248.86 SBD (USD: 1072.587)
+
+    $ balances.sh -p -c BTC not-a-bird ned
+    not-a-bird  pending payout: 248.87 SBD (BTC: 0.095)
+    ned  pending payout: 0.00 SBD (BTC: 0.000)
+
+    $ balances.sh -bpw -c BTC not-a-bird ned
+    not-a-bird  worth: 0.10 BTC 1.899 STEEM 2.027 SBD 1.000 Savings pending payout: 248.88 SBD (BTC: 0.094)
+    ned  worth: 1,452.40 BTC 141871.305 STEEM 5743.288 SBD 0.000 Savings pending payout: 0.00 SBD (BTC: 0.000)
+
 
 # Additional Functionality
 
