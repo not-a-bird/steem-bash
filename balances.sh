@@ -105,10 +105,10 @@ else
                 if [ ! -z "${BALANCE}" ] ; then
                     TICKERINFO="${TICKERINFO} ${STEEM_BALANCE} STEEM"
                     TICKERINFO="${TICKERINFO} ${SBD_BALANCE} SBD"
-                    TICKERINFO="${TICKERINFO} ${STEEM_SAVINGS} Savings"
+                    TICKERINFO="${TICKERINFO} ${STEEM_SAVINGS} Savings "
                 fi
                 if [ ! -z "${SP}" ] ; then
-                    TICKERINFO="${TICKERINFO} ${STEEM_POWER} SP"
+                    TICKERINFO="${TICKERINFO} ${STEEM_POWER} SP "
                 fi
                 if [ ! -z "${PENDING}" ] ; then
                     PAYOUT=$(get_payout "${USER}")
