@@ -23,6 +23,27 @@ math(){
 }
 
 ##
+#    tickline <STRING> [SPEED]
+#
+# Scroll the string once across the terminal.
+# SPEED defaults to 0.25 (value is in seconds)
+tickline(){
+    tput civis
+    local STRING=${1}
+    local SLEEP=${2:-0.25}
+
+    local TICKERINFO=
+    COL=$(tput cols)
+    SPACES=$(printf "%$((COL-2))s" " ")
+    TICKERINFO="${SPACES} ${STRING}  "
+    for ((i=2;i<${#TICKERINFO};i++)); do
+        echo -ne "\r" "$(cut -c$i-$((i+COL-3)) <<< "${TICKERINFO}  ")"
+        sleep "${SLEEP}"
+    done
+    tput cnorm
+}
+
+##
 #     get_steem_per_mvest
 #
 # Scrape steemd for the value in steem of a million vesting shares.
@@ -347,7 +368,7 @@ rpc_get_conversion_requests(){
 # This price is based on moving average of witness reported price feeds.
 rpc_get_current_median_history_price(){
     local ENDPOINT=${1:-${RPC_ENDPOINT}}
-    rpc_invoke get_current_median_history_price "${ENDPOINT}"
+    rpc_invoke get_current_median_history_price null "${ENDPOINT}"
 }
 
 ##
@@ -605,6 +626,14 @@ rpc_get_hardfork_version(){
 #             "verify_authority": 57
 
 
-
-
-
+##
+#     get_payout <AUTHOR> <LIMIT> [ENDPOINT]
+# Gets the specified author's pending payouts as a sum of SBD.
+get_payout(){
+    local AUTHOR=${1}
+    local WHEN=$(date -Iseconds)
+    local LIMIT=${2:-}
+    local PAYOUTS=$(rpc_get_discussions_by_author_before_date "${AUTHOR}" '' "${WHEN}" "${LIMIT}" "${ENDPOINT}" | grep -Po '"pending_payout_value":.*?[^\\]",' | cut -f2 -d:  | cut -f2 -d'"' | cut -f1 -d' ' | xargs)
+    VALUE=$(math "$(sed 's/ /+/g' <<< "${PAYOUTS}")" 2)
+    echo "${VALUE}"
+}
