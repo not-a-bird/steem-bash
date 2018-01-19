@@ -27,11 +27,12 @@ fi
 # Display help message.
 usage(){
     cat << EOF
-Usage: 
-    ${0} [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h] <USER> [USER ...]"
+Usage:
+    ${0} [-a COIN] [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h] <USER> [USER ...]"
 
 Get and display balance information about the specified user.
 
+- a show altcoin value
 - b show balances (sbd, steem, savings) [default when no options specified]
 - c CURRENCY (default is USD)
 - e specify service node endpoint
@@ -44,8 +45,11 @@ EOF
 }
 
 CURRENCY=USD
-while getopts ":c:e:bhstwp" OPT; do
+while getopts ":a:c:e:bhstwp" OPT; do
     case "${OPT}" in
+        a )
+        ALTCOIN[${#ALTCOIN}]=${OPTARG}
+        ;;
         b )
         BALANCE=YES
         ;;
@@ -77,8 +81,10 @@ shift $((OPTIND -1))
 if [ -z "${BALANCE}${SP}${WORTH}${PENDING}" ] ; then
     BALANCE=YES
 fi
-if [ -z "${1}" ] ; then
+
+if [ -z "${ALTCOIN[*]}" -a -z "${1}" ] ; then
     error "No user specified!  Specify one or more users to see their account worth in a ticker."
+    error "Or specify an alt coin to view with -a"
     usage
 else
     WHERE=$(mktemp)
@@ -89,7 +95,7 @@ else
         TICKERINFO=
         for USER in $@ ; do
             TICKERINFO="${TICKERINFO}${USER} "
-            if rpc_get_accounts "${USER}" | jq '.[0]' > "${WHERE}" ; then
+            if rpc_get_accounts "  ${USER}" | jq '.[0]' > "${WHERE}" ; then
                 STEEM_BALANCE=$(jq '.balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
                 SBD_BALANCE=$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
                 VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
@@ -120,6 +126,12 @@ else
                 printf -v TICKERINFO "%s\n" "${TICKERINFO}"
             fi
         done
+        if [ "${#ALTCOIN}" -gt 0 ] ; then
+            ALTPRICES=$(get_prices "${ALTCOIN[*]}")
+            for COIN in ${ALTCOIN[@]} ; do
+                TICKERINFO="${TICKERINFO} ${COIN}: $(jq ".${COIN}.${CURRENCY}" <<< ${ALTPRICES}) "
+            done
+        fi
         if [ ! -z "${TICKER}" ] ; then
             tickline "${TICKERINFO}"
         else
