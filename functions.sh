@@ -626,4 +626,14 @@ rpc_get_hardfork_version(){
 #             "verify_authority": 57
 
 
-
+##
+#     get_payout <AUTHOR> <LIMIT> [ENDPOINT]
+# Gets the specified author's pending payouts as a sum of SBD.
+get_payout(){
+    local AUTHOR=${1}
+    local WHEN=$(date -Iseconds)
+    local LIMIT=${2:-}
+    local PAYOUTS=$(rpc_get_discussions_by_author_before_date "${AUTHOR}" '' "${WHEN}" "${LIMIT}" "${ENDPOINT}" | grep -Po '"pending_payout_value":.*?[^\\]",' | cut -f2 -d:  | cut -f2 -d'"' | cut -f1 -d' ' | xargs)
+    VALUE=$(math "$(sed 's/ /+/g' <<< "${PAYOUTS}")" 2)
+    echo "${VALUE}"
+}
