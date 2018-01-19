@@ -564,16 +564,6 @@ rpc_get_escrow(){
 }
 
 ##
-#     rpc_get_expiring_vesting_delegtion <account> <start> <limit>
-rpc_get_expiring_vesting_delegtions(){
-    local ACCOUNT=${1}
-    local START=${2}
-    local LIMIT=${3}
-    local ENDPOINT=${4:-${RPC_ENDPOINT}}
-    rpc_invoke get_expiring_vesting_delegations "\"${ACCOUNT}\", \"${START}\", 10" "${ENDPOINT}"
-}
-
-##
 #     rpc_get_feed_history [ENDPOINT]
 rpc_get_feed_history(){
     local ENDPOINT=${1:-${RPC_ENDPOINT}}
