@@ -2,17 +2,19 @@
 
 ##
 # Display account balances and other information.  Optionally as a stock ticker.
-# Usage: 
-#    ${0} [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h]"
+# Usage:
+#    ${0} [-a COIN] [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-T seconds] [-w] [-p] [-h] [USER ...]"
 #
+#- a show altcoin value
 #- b show balances (sbd, steem, savings) [default when no options specified]
 #- c CURRENCY (default is USD)
 #- e specify service node endpoint
-#- h show help
+#- h show (this) help
 #- p include pending payouts in output
 #- s include SP in output
 #- t enable stock ticker output
 #- w include total account worth in output
+#- T time to sleep between ticker line updates
 
 trap "tput cnorm" exit
 
@@ -28,7 +30,7 @@ fi
 usage(){
     cat << EOF
 Usage:
-    ${0} [-a COIN] [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h] <USER> [USER ...]"
+    ${0} [-a COIN] [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-T seconds] [-w] [-p] [-h] [USER ...]"
 
 Get and display balance information about the specified user.
 
@@ -41,14 +43,16 @@ Get and display balance information about the specified user.
 - s include SP in output
 - t enable stock ticker output
 - w include total account worth in output
+- T time to sleep between ticker line updates
 EOF
 }
 
 CURRENCY=USD
+TIMER=0.25
 while getopts ":a:c:e:bhstwp" OPT; do
     case "${OPT}" in
         a )
-        ALTCOIN[${#ALTCOIN}]=${OPTARG}
+        ALTCOIN[${#ALTCOIN[@]}]=${OPTARG}
         ;;
         b )
         BALANCE=YES
@@ -64,6 +68,9 @@ while getopts ":a:c:e:bhstwp" OPT; do
         ;;
         t )
         TICKER=YES
+        ;;
+        T )
+        TIMER=${OPTARG}
         ;;
         w )
         WORTH=YES
@@ -84,7 +91,7 @@ fi
 
 if [ -z "${ALTCOIN[*]}" -a -z "${1}" ] ; then
     error "No user specified!  Specify one or more users to see their account worth in a ticker."
-    error "Or specify an alt coin to view with -a"
+    error "Or specify an alt coin to view with -a <COIN>"
     usage
 else
     WHERE=$(mktemp)
@@ -127,13 +134,13 @@ else
             fi
         done
         if [ "${#ALTCOIN}" -gt 0 ] ; then
-            ALTPRICES=$(get_prices "${ALTCOIN[*]}")
+            ALTPRICES=$(get_prices "${ALTCOIN[*]}" "${CURRENCY}")
             for COIN in ${ALTCOIN[@]} ; do
-                TICKERINFO="${TICKERINFO} ${COIN}: $(jq ".${COIN}.${CURRENCY}" <<< ${ALTPRICES}) "
+                TICKERINFO="${TICKERINFO} [[${COIN}: $(jq ".${COIN}.${CURRENCY}" <<< ${ALTPRICES})]] "
             done
         fi
         if [ ! -z "${TICKER}" ] ; then
-            tickline "${TICKERINFO}"
+            tickline "${TICKERINFO}" "${TIMER}"
         else
             printf "${TICKERINFO}"
             exit 0
