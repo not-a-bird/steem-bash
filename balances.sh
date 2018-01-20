@@ -26,7 +26,7 @@ cleanup(){
     tput cnorm
 }
 
-trap cleanup exit
+trap cleanup exit SIGTERM
 
 WHEREAMI=$(dirname ${BASH_SOURCE[0]})
 if [ ${WHEREAMI} != '.' ] ; then
