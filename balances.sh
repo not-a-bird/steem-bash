@@ -16,7 +16,17 @@
 #- w include total account worth in output
 #- T time to sleep between ticker line updates
 
-trap "tput cnorm" exit
+
+##
+# On exit make the cursor visible and clean up the temporary file that was created.
+cleanup(){
+    if [ ! -z "${WHERE}" ] ; then
+        rm "${WHERE}"
+    fi
+    tput cnorm
+}
+
+trap cleanup exit
 
 WHEREAMI=$(dirname ${BASH_SOURCE[0]})
 if [ ${WHEREAMI} != '.' ] ; then
