@@ -59,7 +59,7 @@ EOF
 
 CURRENCY=USD
 TIMER=0.25
-while getopts ":a:c:e:bhstwp" OPT; do
+while getopts ":a:c:e:bhstT:wp" OPT; do
     case "${OPT}" in
         a )
         ALTCOIN[${#ALTCOIN[@]}]=${OPTARG}
