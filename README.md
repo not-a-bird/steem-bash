@@ -68,6 +68,21 @@ Examples:
     not-a-bird  worth: 0.10 BTC 1.899 STEEM 2.027 SBD 1.000 Savings pending payout: 248.88 SBD (BTC: 0.094)
     ned  worth: 1,452.40 BTC 141871.305 STEEM 5743.288 SBD 0.000 Savings pending payout: 0.00 SBD (BTC: 0.000)
 
+The `posts.sh` script can be used (among other purposes) to generate backlinks:
+
+    $ ./posts.sh -b -t fiction not-a-bird
+    [Sorcery - 16](/fiction/@not-a-bird/sorcery-16)
+    [Sorcery - 15](/fiction/@not-a-bird/sorcery-15)
+    [5 Minute Freewrite: Friday - Prompt: corn](/freewrite/@not-a-bird/5-minute-freewrite-friday-prompt-corn)
+    [Sorcery - 14](/fiction/@not-a-bird/sorcery-14)
+
+And it supports (amone other features) tag filtering for exclusion:
+
+    $  ./posts.sh -b -t fiction -e freewrite not-a-bird
+    [Sorcery - 16](/fiction/@not-a-bird/sorcery-16)
+    [Sorcery - 15](/fiction/@not-a-bird/sorcery-15)
+    [Sorcery - 14](/fiction/@not-a-bird/sorcery-14)
+
 
 # Additional Functionality
 
@@ -147,6 +162,7 @@ Uses the following programs in addition to Bash:
 * jq
 * wget
 * zcat
+* tac
 
 # Contributing
 Fork me!  I'll evaluate pull requests as quickly as I can.
