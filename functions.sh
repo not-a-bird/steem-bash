@@ -82,6 +82,18 @@ get_price(){
 }
 
 ##
+#     get_historic_price <TOKEN> <WHEN> [CURRENCY]
+#
+# Ask cryptocompare.com for the price of TOKENS in CURRENCY at seconds timestamp <WHEN>.  Hint: use $(date -u -d "2018-01-20" +"%s") for WHEN.
+# The currency defaults to USD.
+get_historic_price(){
+    local TOKEN=${1}
+    local WHEN=${2}
+    local CURRENCY=${3:-USD}
+    wget "https://min-api.cryptocompare.com/data/pricehistorical?fsym=${TOKEN}&tsyms=${CURRENCY}&ts=${WHEN}" -O - 2>/dev/null
+}
+
+##
 #    get_prices <TOKEN ...> [CURRENCY]
 # Ask cryptocompare.com for the prices of multiple tokens in CURRENCY.
 get_prices(){
