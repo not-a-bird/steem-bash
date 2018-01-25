@@ -137,7 +137,7 @@ if [ -z "${ACCOUNT}" ] ;then
     exit 1
 fi
 CURRENT=$(get_event_count "${ACCOUNT}")
-while [ $? -ne 0 ] ; do
+while [ $? -ne 0 ] ; do # should the rpc call fail, this will keep trying for a good value
     CURRENT=$(get_event_count "${ACCOUNT}")
 done
 LAST=${CURRENT}
@@ -175,4 +175,7 @@ while true; do
         LAST=${CURRENT}
         CURRENT=$(get_event_count "${ACCOUNT}")
     fi
+    while [ $? -ne 0 ] ; do # should the rpc call fail, this will keep trying for a good value
+        CURRENT=$(get_event_count "${ACCOUNT}")
+    done
 done
