@@ -173,8 +173,8 @@ while true; do
             esac
         done
         LAST=${CURRENT}
-        CURRENT=$(get_event_count "${ACCOUNT}")
     fi
+    CURRENT=$(get_event_count "${ACCOUNT}")
     while [ $? -ne 0 ] ; do # should the rpc call fail, this will keep trying for a good value
         CURRENT=$(get_event_count "${ACCOUNT}")
     done
