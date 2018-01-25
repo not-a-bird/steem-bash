@@ -20,19 +20,14 @@ Import `functions.sh` in your script and then call any functions you want.
 
 There are some example scripts, they all take a minimum, one or more account names.
 
-* `worth.sh` - original one-shot example for fetching account value
 * `balances.sh` - an uber example ticker or one-shot script
+* `notify.sh` - a script for creating desktop notifications
+* `posts.sh` - a script that can create backlinks (among other abilities)
+* `worth.sh` - original one-shot example for fetching account value
 
-The `worth.sh` script is a very basic example that only supports a user name.
+The `balances.sh` supports many options and multiple user names.
 
-Example:
-
-    $ worth.sh not-a-bird
-    1577.120
-
-The `balances.sh` supports more options and multiple user names.
-
-    Usage: 
+    Usage:
         balances.sh [-b] [-c CURRENCY] [-e RPC_ENDPOINT] [-s] [-t] [-w] [-p] [-h] <USER> [USER ...]"
 
     Get and display balance information about the specified user.
@@ -68,6 +63,18 @@ Examples:
     not-a-bird  worth: 0.10 BTC 1.899 STEEM 2.027 SBD 1.000 Savings pending payout: 248.88 SBD (BTC: 0.094)
     ned  worth: 1,452.40 BTC 141871.305 STEEM 5743.288 SBD 0.000 Savings pending payout: 0.00 SBD (BTC: 0.000)
 
+The `notify.sh` script takes a single argument that is the user to watch and it
+will create desktop notifications for any of the following incoming activities:
+
+    * upvotes
+    * transfers
+    * comments
+    * rewards
+
+For notifications to work, notify-send must be installed and the notification
+daemon needs to be running.  Otherwise the script will dump debugging messages
+to the terminal instead of displaying notifications.
+
 The `posts.sh` script can be used (among other purposes) to generate backlinks:
 
     $ ./posts.sh -b -t fiction not-a-bird
@@ -83,6 +90,12 @@ And it supports (amone other features) tag filtering for exclusion:
     [Sorcery - 15](/fiction/@not-a-bird/sorcery-15)
     [Sorcery - 14](/fiction/@not-a-bird/sorcery-14)
 
+The `worth.sh` script is a very basic example that only supports a user name.
+
+Example:
+
+    $ worth.sh not-a-bird
+    1577.120
 
 # Additional Functionality
 
@@ -91,10 +104,20 @@ from other scripts, and then the functions within it can be invoked directly.
 
 Current functionality:
 
- * `get_profile`
-Gets the specified user's profile as JSON.
+ * `error`
+A function for displaying error messages to standard out.
 
- * `get_bank` (Updated to use the JSON RPC calls)
+ * `math`
+A function for doing floating point math.
+
+ * `tickline`
+A function to facilitate creating scrolling tickers on the terminal.
+
+ * `get_profile`
+Gets the specified user's profile as JSON. (Using steemit directly, not the
+typical steemd api).
+
+ * `get_bank`
 Gets the value of the specified user's wallet, including STEEM, SP, SBD, and
 savings (but not delegations, since these aren't owned by the user).
 
@@ -104,6 +127,9 @@ in computing the SP for a given user.
 
  * `get_price`, `get_prices`
 Gets the price for a given crypto currency from cryptocompare.com.
+
+ * `get_historic_price`
+Gets the price for a given crypto currency at a specified point in the past.
 
  * `get_steempower_for_vests`
 Gets the steem power based for an input number of vesting shares.
@@ -117,12 +143,10 @@ we'll see how that unfolds.
 
 Current set of RPC functions:
 
- * `rpc_invoke()`
- * `rpc_raw()`
  * `rpc_get_account_count()`
  * `rpc_get_account_history()`
- * `rpc_get_account_votes()`
  * `rpc_get_accounts()`
+ * `rpc_get_account_votes()`
  * `rpc_get_active_votes()`
  * `rpc_get_active_witnesses()`
  * `rpc_get_block()`
@@ -134,9 +158,8 @@ Current set of RPC functions:
  * `rpc_get_current_median_history_price()`
  * `rpc_get_discussions_by_active()`
  * `rpc_get_discussions_by_author_before_date()`
- * `rpc_get_discussions_by_cashout()`
- * `rpc_get_expiring_vesting_delegations()`
  * `rpc_get_discussions_by_blog()`
+ * `rpc_get_discussions_by_cashout()`
  * `rpc_get_discussions_by_children()`
  * `rpc_get_discussions_by_comments()`
  * `rpc_get_discussions_by_created()`
@@ -146,12 +169,14 @@ Current set of RPC functions:
  * `rpc_get_discussions_by_promoted()`
  * `rpc_get_discussions_by_trending()`
  * `rpc_get_discussions_by_votes()`
- * `rpc_get_discussions_by_payout()`
  * `rpc_get_dynamic_global_properties()`
  * `rpc_get_escrow()`
- * `rpc_get_expiring_vesting_delegtions()`
+ * `rpc_get_expiring_vesting_delegations()`
  * `rpc_get_feed_history()`
  * `rpc_get_hardfork_version()`
+ * `rpc_get_reward_fund()`
+ * `rpc_invoke()`
+ * `rpc_raw()`
 
 # Requirements
 
@@ -163,6 +188,9 @@ Uses the following programs in addition to Bash:
 * wget
 * zcat
 * tac
+
+The `notify.sh` example script also requires a notification daemon and
+notify-send.  The `notify` function can be adapted for other platforms.
 
 # Contributing
 Fork me!  I'll evaluate pull requests as quickly as I can.
@@ -179,7 +207,7 @@ of Bash scripts.  If you know of any good ones, please let me know!
 
 ## Contacting Me
 
-The only social network I use it the Steem blockchain.  You can find me on the
-Utopian.io Discord server, the steemit.chat server, or even message me directly
-or comment on one of my posts and I'll get back to you.
+The only social network I use is it the Steem blockchain.  You can find me on
+the Utopian.io Discord server, the steemit.chat server, or even message me
+directly or comment on one of my posts and I'll get back to you.
 
