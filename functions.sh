@@ -48,26 +48,23 @@ tickline(){
 #
 # Scrape steemd for the value in steem of a million vesting shares.
 get_steem_per_mvest(){
-    local RESULT=$(mktemp)
-    rpc_get_dynamic_global_properties > "${RESULT}"
-    local TOTAL_VESTING_FUND_STEEM=$(jq ".total_vesting_fund_steem" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
-    local TOTAL_VESTING_SHARES=$(jq ".total_vesting_shares" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    local RESULT=$(rpc_get_dynamic_global_properties)
+    local TOTAL_VESTING_FUND_STEEM=$(jq -r ".total_vesting_fund_steem" <<< "${RESULT}" | cut -f1 -d' ')
+    local TOTAL_VESTING_SHARES=$(jq -r ".total_vesting_shares" <<< "${RESULT}" | cut -f1 -d' ')
     echo $(math "${TOTAL_VESTING_FUND_STEEM}/${TOTAL_VESTING_SHARES}*1000000")
-    rm "${RESULT}"
 }
 
 ##
-#    get_steem_per_vest
+#    get_steem_per_vest [ENDPOINT]
 # Get the amount of steem per vesting share, this avoids multiplying by a
 # million so that the calculate of steempower_for_vests wont need to do extra
 # math.
 get_steem_per_vest(){
-    local RESULT=$(mktemp)
-    rpc_get_dynamic_global_properties > "${RESULT}"
-    local TOTAL_VESTING_FUND_STEEM=$(jq ".total_vesting_fund_steem" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
-    local TOTAL_VESTING_SHARES=$(jq ".total_vesting_shares" < "${RESULT}" | cut -f2 -d'"' | cut -f1 -d' ')
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    local RESULT=$(rpc_get_dynamic_global_properties)
+    local TOTAL_VESTING_FUND_STEEM=$(jq -r ".total_vesting_fund_steem" <<< "${RESULT}" | cut -f1 -d' ')
+    local TOTAL_VESTING_SHARES=$(jq -r ".total_vesting_shares" <<< "${RESULT}" | cut -f1 -d' ')
     echo $(math "${TOTAL_VESTING_FUND_STEEM}/${TOTAL_VESTING_SHARES}" 10)
-    rm "${RESULT}"
 }
 
 ##
@@ -81,6 +78,7 @@ get_price(){
     wget "https://min-api.cryptocompare.com/data/price?fsym=${TOKEN}&tsyms=${CURRENCY}" -O - 2>/dev/null | jq ".${CURRENCY}"
 }
 
+declare -A PRICECACHE
 ##
 #     get_historic_price <TOKEN> <WHEN> [CURRENCY]
 #
@@ -90,7 +88,27 @@ get_historic_price(){
     local TOKEN=${1}
     local WHEN=${2}
     local CURRENCY=${3:-USD}
-    wget "https://min-api.cryptocompare.com/data/pricehistorical?fsym=${TOKEN}&tsyms=${CURRENCY}&ts=${WHEN}" -O - 2>/dev/null
+    local KEY=$(date +"%Y-%m-%d" -d @${WHEN})
+    local SUCCESS=0
+    local VALUE=${PRICECACHE["K${KEY}"]}
+    ##
+    #   An  indexed  array is created automatically if any variable is
+    #   assigned to using the syntax name[subscript]=value.  The subscript
+    #   is treated as an arithmetic expression that must evaluate to a number.
+    #
+    # >>> so dates look like math with possibly invalid octals in them. <<<
+    #
+    #   To explicitly declare an indexed array,  use  declare  -a name (see
+    #   SHELL BUILTIN COMMANDS below).  declare -a name[subscript] is also
+    #   accepted; the subscript is ignored.
+    #   Associative arrays are created using declare -A name.
+
+    if [ -z "${VALUE}" ] ; then
+        PRICECACHE[${KEY}]=$(wget "https://min-api.cryptocompare.com/data/pricehistorical?fsym=${TOKEN}&tsyms=${CURRENCY}&ts=${WHEN}" -O - 2>/dev/null | jq ".${TOKEN}.${CURRENCY}")
+        SUCCESS=$?
+    fi
+    echo ${PRICECACHE[${KEY}]}
+    return ${SUCCESS}
 }
 
 ##
@@ -104,12 +122,13 @@ get_prices(){
 }
 
 ##
-#     get_steempower_for_vests <VESTS>
+#     get_steempower_for_vests <VESTS> [ENDPOINT]
 #
 # Calculates steem power provided a number of vesting shares.
 get_steempower_for_vests(){
     local VESTS=${1}
-    local STEEM_PER_VEST=$(get_steem_per_vest)
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    local STEEM_PER_VEST=$(get_steem_per_vest "${ENDPOINT}")
     local STEEM_POWER=$(math "${VESTS}*${STEEM_PER_VEST}" 10)
     echo "${STEEM_POWER}"
 }
@@ -123,6 +142,29 @@ get_profile(){
     wget "https://steemit.com/@${WHOM}.json" -O - 2>/dev/null | zcat
 }
 
+## WIP # ##
+## WIP # #    get_vote_value <USERNAME> [PERCENT] [ENDPOINT]
+## WIP # # Get the SBD value of the specified users vote at the given WEIGHT.
+## WIP # # (Weight is kind of like percent times 100000.)
+## WIP # # Percent defaults to 100, regardless of the specified user's actually
+## WIP # # remaining VP, so use the WEIGHT if you want an amount other than 100%
+## WIP # # PERCENT is a whole number, [0..100].
+## WIP # get_vote_value(){
+## WIP #     local WHOM=${1}
+## WIP #     local PERCENT=${2}
+## WIP #     local ENDPOINT=${3:-${RPC_ENDPOINT}}
+## WIP #     local GLOBAL=$(rpc_get_dynamic_global_properties "${ENDPOINT}")
+## WIP #     local VESTING_SHARES=$(rpc_get_accounts "${WHOM}" | jq -r '.[0].vesting_shares')
+## WIP #     local MEDIAN=$(rpc_get_current_median_history_price ${ENDPOINT})
+## WIP #     local PRICE=$(math "$(jq -r '.base' <<< ${MEDIAN}| cut -f1 -d' ') / $(jq -r '.quote' <<< ${MEDIAN} | cut -f1 -d' ')")
+## WIP #     local VESTS=$(math "${VESTING_SHARES} * 0.02")
+## WIP #     local REWARD_FUND=$(rpc_get_reward_fund "post")
+## WIP #     local BALANCE=$(jq -r '.reward_balance' <<< ${REWARD_FUND} | cut -f2 -d' ')
+## WIP #     local CLAIMS=$(jq -r '.recent_claims' <<< ${REWARD_FUND} | cut -f2 -d' ')
+## WIP #     echo "$(math "(${BALANCE}/${CLAIMS})*${PRICE}*
+## WIP # }
+
+
 ##
 #     get_bank <username> [currency]
 #
@@ -130,26 +172,24 @@ get_profile(){
 # (defaults to USD).
 get_bank(){
     local WHOM=${1}
-    local WHERE=$(mktemp)
     local SUCCESS=0
     local CURRENCY=${2:-USD}
 
-    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
+    local WHERE=$(rpc_get_accounts "${WHOM}" | jq '.[0]')
+    if [ $? -eq 0 ] ; then
         local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
         local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
         local SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
-        local BALANCE=$(jq '.balance' < "${WHERE}" | cut -f2 -d'"' |  cut -f1 -d" ")
-        local SBD_BALANCE=$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-        local VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-        local STEEM_SAVINGS=$(jq '.savings_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+        local BALANCE=$(jq -r '.balance' <<< "${WHERE}" |  cut -f1 -d" ")
+        local SBD_BALANCE=$(jq  -r '.sbd_balance' <<< "${WHERE}" | cut -f1 -d" ")
+        local VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
+        local STEEM_SAVINGS=$(jq  -r '.savings_balance' <<< "${WHERE}" | cut -f1 -d" ")
         local STEEM_POWER=$(get_steempower_for_vests "$VESTING_SHARES")
         local BANK=$(math "(${BALANCE}+${STEEM_POWER}+${STEEM_SAVINGS}) * ${STEEMV} + ${SBD_BALANCE} * ${SBDV}")
         echo "${BANK}"
     else
-        SUCCESS=-1
+        SUCCESS=1
     fi
-
-    rm "${WHERE}"
     return ${SUCCESS}
 }
 
@@ -216,7 +256,7 @@ rpc_get_account_history(){
     local INDEX_FROM=${2}
     local LIMIT=${3}
     local ENDPOINT=${4:-${RPC_ENDPOINT}}
-    rpc_invoke get_account_history "${ACCOUNT} $INDEX_FROM $LIMIT" "${ENDPOINT}"
+    rpc_invoke get_account_history "\"${ACCOUNT}\", $INDEX_FROM, $LIMIT" "${ENDPOINT}"
 }
 
 ##
@@ -604,6 +644,12 @@ rpc_get_hardfork_version(){
 #             "get_replies_by_last_update": 64,
 #             "get_required_signatures": 55,
 #             "get_reward_fund": 32,
+rpc_get_reward_fund(){
+    local NAME=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke get_reward_fund '"post"'
+}
+
 #             "get_savings_withdraw_from": 46,
 #             "get_savings_withdraw_to": 47,
 #             "get_state": 23,
@@ -645,14 +691,13 @@ get_payout(){
 get_sp(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
-    local WHERE=$(mktemp)
     local SUCCESS=1
-    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
-        local VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-        echo "$(get_steempower_for_vests "$VESTING_SHARES")"
+    local WHERE=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq '.[0]')
+    if [ $? -eq 0 ] ; then
+        local VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
+        echo "$(get_steempower_for_vests "$VESTING_SHARES" "${ENDPOINT}")"
         SUCCESS=0
     fi
-    rm "${WHERE}"
     return "${SUCCESS}"
 }
 
@@ -661,13 +706,12 @@ get_sp(){
 get_steem(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
-    local WHERE=$(mktemp)
     local SUCCESS=1
-    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
-        echo "$(jq '.balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")"
+    local STEEM=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].balance' | cut -f1 -d' ')
+    if [ $? -eq 0 ] ; then
+        echo "${STEEM}"
         SUCCESS=0
     fi
-    rm "${WHERE}"
     return "${SUCCESS}"
 }
 
@@ -676,12 +720,106 @@ get_steem(){
 get_sbd(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
-    local WHERE=$(mktemp)
     local SUCCESS=1
-    if rpc_get_accounts "${WHOM}" | jq '.[0]' > "${WHERE}" ; then
-        echo "$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")"
+    local SBD=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].sbd_balance' | cut -f1 -d' ')
+    if [ $? -eq 0 ] ; then
+        echo "${SBD}"
         SUCCESS=0
     fi
-    rm "${WHERE}"
     return "${SUCCESS}"
+}
+
+##
+# Convert the provided date to seconds.
+date_to_seconds(){
+    date -d ${1} +"%s"
+}
+
+##
+# Get incoming transfers and rewards between the specified dates.
+get_total_incoming(){
+    local WHOM=${1}
+    local START=$(date_to_seconds "${2}")
+    local END=$(date_to_seconds "${3}")
+    local CURRENCY=${4}
+    local ENDPOINT=${5:-${RPC_ENDPOINT}}
+    local CHUNK=1000
+    local LASTCHUNK=1000
+    local TOTAL_SBD=0
+    local TOTAL_STEEM=0
+
+    local TOTAL=0
+    local DONE=
+    while [ -z "${DONE}" ] ; do
+        #get a set of records
+        #if the date is after start date but before end date, collect the records
+        #keep going until date before start date
+        local HISTORY=$(rpc_get_account_history "${WHOM}" "${LASTCHUNK}" "${CHUNK}")
+        if [ "$HISTORY" = "null" ] ; then
+            break;
+            DONE=yes
+        fi
+        for((i=0;i<${CHUNK};i++)) ; do
+            #jq ".[$i][1].timestamp" <<< ${HISTORY}
+            local TS=$(jq -r ".[$i][1].timestamp"<<< ${HISTORY})
+            if [ $? -ne 0 ] ; then
+                DONE=yes
+                break;
+            fi
+            TS=$(date_to_seconds "${TS}")
+            local OP=$(jq -r ".[$i][1].op[0]" <<< ${HISTORY})
+            if [ "${TS}" -gt "${END}" ] ; then
+                # need to fetch a chunk that is further back...
+                break
+            fi
+            if [ "${TS}" -gt "$((START-1))" -a "${TS}" -lt $((END+1)) ] ; then
+                local DATEKEY=$(date -d @${TS} -Iseconds | cut -f1 -dT)
+                local VESTVALUE=$(grep $DATEKEY balances.csv | cut -f2 -d',')
+                #in range, so use it!
+                if [ "${OP}" = "curation_reward" ] ; then
+                    echo -n "$(date -d @${TS} -Iseconds)	"
+                    # NEED TO CONVERT THE VEST TO STEEM AND GET THE DOLLAR VALUE IMMEDIATELY FOR INCOME TAX VALUE!
+                    local VESTS=$(jq -r ".[$i][1].op[1].reward" <<< ${HISTORY} | cut -f1 -d' ')
+                    local STEEMVALUE=$(math "$VESTS * $VESTVALUE")
+                    local CURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                    TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
+                    echo "0	0	${VESTS}	${STEEMVALUE}	${CURRENCYVALUE}"
+                elif [ "${OP}" = "author_reward" ] ; then
+                    echo -n "$(date -d @${TS} -Iseconds)	"
+                    echo -n $(jq -r ".[$i][1].op[1] | .steem_payout, .sbd_payout, .vesting_payout " <<< ${HISTORY} | cut -f1 -d' ' | xargs | sed 's/ /	/g')
+                    local VESTS=$(jq -r ".[$i][1].op[1] | .vesting_payout " <<< ${HISTORY} | cut -f1 -d' ')
+                    local VESTSTEEMVALUE=$(math "$VESTS * $VESTVALUE")
+                    local VESTCURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${VESTSTEEMVALUE}")
+                    local SBDVALUE=$(jq -r ".[$i][1].op[1] | .sbd_payout " <<< ${HISTORY} | cut -f1 -d' ')
+                    local SBDCURRENCYVALUE=$(math "$(get_historic_price SBD ${TS} ${CURRENCY})*${SBDVALUE}")
+                    local STEEMVALUE=$(jq -r ".[$i][1].op[1] | .steem_payout " <<< ${HISTORY} | cut -f1 -d' ')
+                    local STEEMCURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                    local CURRENCYVALUE=$(math ${SBDCURRENCYVALUE}+${STEEMCURRENCYVALUE}+${VESTSTEEMVALUE})
+                    echo "	-	${CURRENCYVALUE}"
+                    TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
+                elif [ "${OP}" = "transfer" ] ; then
+                    local RECIPIENT=$(jq -r ".[$i][1].op[1].to" <<< ${HISTORY})
+                    if [ "${RECIPIENT}" = "${WHOM}" ] ; then
+                        echo -n "$(date -d @${TS} -Iseconds)	"
+                        local AMOUNT=$(jq -r ".[$i][1].op[1].amount" <<< ${HISTORY})
+                        local STEEM=0
+                        local SBD=0
+                        if [ "$(echo ${AMOUNT} | cut -f2 -d' ')" = "STEEM" ] ; then
+                            STEEM=$(echo ${AMOUNT} | cut -f1 -d' ')
+                            local STEEMVALUE=$(jq -r ".[$i][1].op[1] | .steem_payout " <<< ${HISTORY} | cut -f1 -d' ')
+                            local CURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                        else
+                            SBD=$(echo ${AMOUNT} | cut -f1 -d' ')
+                            local SBDVALUE=$(jq -r ".[$i][1].op[1] | .sbd_payout " <<< ${HISTORY} | cut -f1 -d' ')
+                            local CURRENCYVALUE=$(math "$(get_historic_price SBD ${TS} ${CURRENCY})*${SBDVALUE}")
+                        fi
+                        TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
+                        echo "$STEEM	$SBD	-	-	${CURRENCYVALUE}"
+                    fi
+                fi
+            fi
+        done
+        LASTCHUNK=$((LASTCHUNK+CHUNK))
+    done
+    echo "TOTAL quarterly income: $TOTAL"
 }
