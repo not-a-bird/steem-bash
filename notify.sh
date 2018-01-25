@@ -104,7 +104,13 @@ handle_curation(){
     local HISTORY=$(cat)
     local ICON="-i trophy-silver"
     local REWARD=$(jq -r '.[1].reward' <<< "${HISTORY}")
-    notify "${ICON}" "Curation" "Curation reward for ${REWARD}"
+    local PERMLINK=$(jq -r '.[1].comment_permlink' <<< "${HISTORY}" )
+    local AUTHOR=$(jq -r '.[1].comment_author' <<< "${HISTORY}")
+    local TITLE=$(rpc_get_content "${AUTHOR}" "${PERMLINK}" | jq -r '.title')
+    if [ ! -z "${TITLE}" ] ; then
+        TITLE="for ${TITLE}"
+    fi
+    notify "${ICON}" "Curation" "Curation reward of ${REWARD} for ${TITLE}"
 }
 
 ##
@@ -131,6 +137,9 @@ if [ -z "${ACCOUNT}" ] ;then
     exit 1
 fi
 CURRENT=$(get_event_count "${ACCOUNT}")
+while [ $? -ne 0 ] ; do
+    CURRENT=$(get_event_count "${ACCOUNT}")
+done
 LAST=${CURRENT}
 while true; do
     if [ "$CURRENT" -ne "$LAST" ] ; then
@@ -164,6 +173,6 @@ while true; do
             esac
         done
         LAST=${CURRENT}
-        echo $LAST
+        CURRENT=$(get_event_count "${ACCOUNT}")
     fi
 done
