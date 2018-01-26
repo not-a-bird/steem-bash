@@ -18,11 +18,8 @@
 
 
 ##
-# On exit make the cursor visible and clean up the temporary file that was created.
+# On exit make the cursor visible.
 cleanup(){
-    if [ ! -z "${WHERE}" ] ; then
-        rm "${WHERE}"
-    fi
     tput cnorm
 }
 
@@ -104,7 +101,6 @@ if [ -z "${ALTCOIN[*]}" -a -z "${1}" ] ; then
     error "Or specify an alt coin to view with -a <COIN>"
     usage
 else
-    WHERE=$(mktemp)
     while true; do
         if [ ! -z "${TICKER}" ] ; then
             echo -ne '\r.'
@@ -112,11 +108,12 @@ else
         TICKERINFO=
         for USER in $@ ; do
             TICKERINFO="${TICKERINFO}  ${USER} "
-            if rpc_get_accounts "${USER}" | jq '.[0]' > "${WHERE}" ; then
-                STEEM_BALANCE=$(jq '.balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-                SBD_BALANCE=$(jq '.sbd_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-                VESTING_SHARES=$(jq '.vesting_shares' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
-                STEEM_SAVINGS=$(jq '.savings_balance' < "${WHERE}" | cut -f2 -d'"'| cut -f1 -d" ")
+            WHERE=$(rpc_get_accounts "${USER}" | jq '.[0]')
+            if [ $? -eq 0 ] ; then
+                STEEM_BALANCE=$(jq -r '.balance' <<< "${WHERE}" | cut -f1 -d" ")
+                SBD_BALANCE=$(jq -r '.sbd_balance' <<< "${WHERE}" | cut -f1 -d" ")
+                VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
+                STEEM_SAVINGS=$(jq -r '.savings_balance' <<< "${WHERE}" | cut -f1 -d" ")
                 STEEM_POWER=$(get_steempower_for_vests "$VESTING_SHARES")
                 PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
                 SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
