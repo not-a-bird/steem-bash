@@ -3,6 +3,13 @@
 ##
 # Generic functions and functions for interacting with Steem.
 
+
+##
+# Sometimes remote calls will fail, this defines the fallback strategy to use
+# when they fail.
+# Possible values are slow or fast.  Slow will try to reconnect.  Fast will fail fast.
+RECOVERY=slow
+
 ##
 #     error <message>
 #
@@ -20,6 +27,24 @@ math(){
     local PROBLEM=${1}
     local SCALE=${2:-3}
     printf "%.${SCALE}f" $(echo "$PROBLEM" | bc -l )
+}
+
+##
+# Fetch the specified URI, but if there is a connection issue fall back on the
+# RECOVERY method to decide how to proceed.
+#
+#
+fetch(){
+    local URI=${1}
+    wget "${URI}" -O - 2>/dev/null
+    if [ $? -ne 0 ] ; then
+        if [ "${RECOVERY}" = "slow" ] ; then
+            wget "${URI}" -O - 2>/dev/null
+            while [ $? -ne 0 ] ;do
+                wget "${URI}" -O - 2>/dev/null
+            done
+        fi
+    fi
 }
 
 ##
@@ -44,10 +69,12 @@ tickline(){
 }
 
 ##
-#     get_steem_per_mvest
+#     get_steem_per_mvest [ENDPOINT]
 #
-# Scrape steemd for the value in steem of a million vesting shares.
+# Formerly scrape steemd for the value in steem of a million vesting shares,
+# but now it uses the JSON RPC interface instead.
 get_steem_per_mvest(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
     local RESULT=$(rpc_get_dynamic_global_properties)
     local TOTAL_VESTING_FUND_STEEM=$(jq -r ".total_vesting_fund_steem" <<< "${RESULT}" | cut -f1 -d' ')
     local TOTAL_VESTING_SHARES=$(jq -r ".total_vesting_shares" <<< "${RESULT}" | cut -f1 -d' ')
@@ -75,7 +102,7 @@ get_steem_per_vest(){
 get_price(){
     local TOKEN=${1}
     local CURRENCY=${2:-USD}
-    wget "https://min-api.cryptocompare.com/data/price?fsym=${TOKEN}&tsyms=${CURRENCY}" -O - 2>/dev/null | jq ".${CURRENCY}"
+    fetch "https://min-api.cryptocompare.com/data/price?fsym=${TOKEN}&tsyms=${CURRENCY}" | jq ".${CURRENCY}"
 }
 
 declare -A PRICECACHE
@@ -104,7 +131,7 @@ get_historic_price(){
     #   Associative arrays are created using declare -A name.
 
     if [ -z "${VALUE}" ] ; then
-        PRICECACHE[${KEY}]=$(wget "https://min-api.cryptocompare.com/data/pricehistorical?fsym=${TOKEN}&tsyms=${CURRENCY}&ts=${WHEN}" -O - 2>/dev/null | jq ".${TOKEN}.${CURRENCY}")
+        PRICECACHE[${KEY}]=$(fetch "https://min-api.cryptocompare.com/data/pricehistorical?fsym=${TOKEN}&tsyms=${CURRENCY}&ts=${WHEN}" | jq ".${TOKEN}.${CURRENCY}")
         SUCCESS=$?
     fi
     echo ${PRICECACHE[${KEY}]}
@@ -117,8 +144,8 @@ get_historic_price(){
 get_prices(){
     local TOKENS=${1}
     local CURRENCY=${2:-USD}
-    TOKENS=$(sed 's/ /,/g' <<< $TOKENS)
-    wget "https://min-api.cryptocompare.com/data/pricemulti?fsyms=${TOKENS}&tsyms=${CURRENCY}" -O - 2>/dev/null
+    TOKENS=$(sed 's/ /,/g' <<< "$TOKENS")
+    fetch "https://min-api.cryptocompare.com/data/pricemulti?fsyms=${TOKENS}&tsyms=${CURRENCY}"
 }
 
 ##
@@ -139,7 +166,7 @@ get_steempower_for_vests(){
 # Do a wget against the target, provide the document to submit on standard in.
 get_profile(){
     local WHOM=${1}
-    wget "https://steemit.com/@${WHOM}.json" -O - 2>/dev/null | zcat
+    fetch "https://steemit.com/@${WHOM}.json" | zcat
 }
 
 ## WIP # ##
@@ -208,7 +235,17 @@ rpc_invoke(){
     local ARGS=${2:-null}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
     local DATA="{ \"jsonrpc\": \"2.0\", \"method\": \"${METHOD}\", \"params\": [${ARGS},] \"id\": 1 }"
-    wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null | jq '.result'
+    local OUTPUT
+    OUTPUT=$(wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null)
+    if [ $? -ne 0 ] ; then
+        if [ "${RECOVERY}" = "slow" ] ; then
+            OUTPUT=$(wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null)
+            while [ $? -ne 0 ] ; do
+                OUTPUT=$(wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null)
+            done
+        fi
+    fi
+    jq '.result' <<< "${OUTPUT}"
 }
 
 ##
@@ -219,6 +256,15 @@ rpc_raw(){
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
     local DATA="{ \"jsonrpc\": \"2.0\", \"method\": \"${METHOD}\", \"params\": [${ARGS},] \"id\": 1 }"
     wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null
+    if [ $? -ne 0 ] ; then
+        if [ "${RECOVERY}" = "slow" ] ; then
+            wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null
+            while [ $? -ne 0 ] ;do
+                wget --method=PUT --body-data "${DATA}"  -O - "${ENDPOINT}" 2>/dev/null
+            done
+        fi
+    fi
+
 }
 
 #
@@ -745,8 +791,6 @@ get_total_incoming(){
     local ENDPOINT=${5:-${RPC_ENDPOINT}}
     local CHUNK=1000
     local LASTCHUNK=1000
-    local TOTAL_SBD=0
-    local TOTAL_STEEM=0
 
     local TOTAL=0
     local DONE=
