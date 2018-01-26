@@ -152,7 +152,6 @@ fi
 CURRENT=$(get_event_count "${ACCOUNT}")
 LAST=${CURRENT}
 while true; do
-    echo "${CURRENT} ne ${LAST}"
     if [ "$CURRENT" -ne "$LAST" ] ; then
         COUNT=$((CURRENT-LAST))
         echo "update needed ($COUNT)"
