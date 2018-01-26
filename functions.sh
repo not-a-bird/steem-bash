@@ -201,8 +201,9 @@ get_bank(){
     local WHOM=${1}
     local SUCCESS=0
     local CURRENCY=${2:-USD}
+    local WHERE
 
-    local WHERE=$(rpc_get_accounts "${WHOM}" | jq '.[0]')
+    WHERE=$(rpc_get_accounts "${WHOM}" | jq '.[0]')
     if [ $? -eq 0 ] ; then
         local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
         local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
@@ -738,7 +739,8 @@ get_sp(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
     local SUCCESS=1
-    local WHERE=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq '.[0]')
+    local WHERE
+    WHERE=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq '.[0]')
     if [ $? -eq 0 ] ; then
         local VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
         echo "$(get_steempower_for_vests "$VESTING_SHARES" "${ENDPOINT}")"
@@ -753,7 +755,8 @@ get_steem(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
     local SUCCESS=1
-    local STEEM=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].balance' | cut -f1 -d' ')
+    local STEEM
+    STEEM=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].balance' | cut -f1 -d' ')
     if [ $? -eq 0 ] ; then
         echo "${STEEM}"
         SUCCESS=0
@@ -767,7 +770,8 @@ get_sbd(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
     local SUCCESS=1
-    local SBD=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].sbd_balance' | cut -f1 -d' ')
+    local SBD
+    SBD=$(rpc_get_accounts "${WHOM}" "${ENDPOINT}" | jq -r '.[0].sbd_balance' | cut -f1 -d' ')
     if [ $? -eq 0 ] ; then
         echo "${SBD}"
         SUCCESS=0
@@ -805,7 +809,8 @@ get_total_incoming(){
         fi
         for((i=0;i<${CHUNK};i++)) ; do
             #jq ".[$i][1].timestamp" <<< ${HISTORY}
-            local TS=$(jq -r ".[$i][1].timestamp"<<< ${HISTORY})
+            local TS
+            TS=$(jq -r ".[$i][1].timestamp"<<< ${HISTORY})
             if [ $? -ne 0 ] ; then
                 DONE=yes
                 break;
