@@ -3,6 +3,7 @@
 ##
 # Watch the activity of your (or any) user and create notifications.
 
+
 WHEREAMI=$(dirname ${BASH_SOURCE[0]})
 if [ ${WHEREAMI} != '.' ] ; then
     WHEREAMI=$(readlink ${WHEREAMI})
@@ -20,11 +21,18 @@ fi
 #
 # Get the latest number of events for the specified account.
 get_event_count(){
-        local WHOM=${1}
-        local COUNT=$(rpc_get_account_history "${WHOM}"  -1 0 | jq '.[0][0]')
-        SUCCESS=$?
-        echo ${COUNT}
-        return ${SUCCESS}
+    local WHOM=${1}
+    local COUNT
+    local OUTPUT
+    OUTPUT=$(rpc_get_account_history "${WHOM}"  -1 0)
+    SUCCESS=$?
+    if [ $SUCCESS -ne 0 ] ; then
+        echo $SUCCESS
+    else
+        COUNT=$(jq '.[0][0]' <<< "${OUTPUT}")
+    fi
+    echo ${COUNT}
+    return ${SUCCESS}
 }
 
 ##
@@ -35,7 +43,11 @@ notify(){
     local ICON=${1}
     local TITLE=${2}
     local MESSAGE=${3}
-    notify-send -t 1 ${ICON} "${TITLE}" "${MESSAGE}" || (echo "$TITLE" && cat <<< "${MESSAGE}")
+    notify-send -t 1 ${ICON} "${TITLE}" "${MESSAGE}"
+    local SUCCESS=$?
+    echo "$TITLE"
+    cat <<< "${MESSAGE}"
+    return ${SUCCESS}
 }
 
 ###
@@ -136,12 +148,11 @@ if [ -z "${ACCOUNT}" ] ;then
     error "Specify an account to watch!"
     exit 1
 fi
+#set -x
 CURRENT=$(get_event_count "${ACCOUNT}")
-while [ $? -ne 0 ] ; do # should the rpc call fail, this will keep trying for a good value
-    CURRENT=$(get_event_count "${ACCOUNT}")
-done
 LAST=${CURRENT}
 while true; do
+    echo "${CURRENT} ne ${LAST}"
     if [ "$CURRENT" -ne "$LAST" ] ; then
         COUNT=$((CURRENT-LAST))
         echo "update needed ($COUNT)"
@@ -174,8 +185,6 @@ while true; do
         done
         LAST=${CURRENT}
     fi
+    sleep 0.1
     CURRENT=$(get_event_count "${ACCOUNT}")
-    while [ $? -ne 0 ] ; do # should the rpc call fail, this will keep trying for a good value
-        CURRENT=$(get_event_count "${ACCOUNT}")
-    done
 done
