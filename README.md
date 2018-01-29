@@ -71,6 +71,10 @@ will create desktop notifications for any of the following incoming activities:
     * comments
     * rewards
 
+A `-f` option to watch followers of the specified account has been added that
+will produce voting and comment notifications for any accoutns that are being
+followed by the specified account.
+
 For notifications to work, notify-send must be installed and the notification
 daemon needs to be running.  Otherwise the script will dump debugging messages
 to the terminal instead of displaying notifications.
