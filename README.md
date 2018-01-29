@@ -182,6 +182,14 @@ Current set of RPC functions:
  * `rpc_invoke()`
  * `rpc_raw()`
 
+The `follow_api` has also been implemented:
+
+ * `rpc_get_followers`
+ * `rpc_get_following`
+ * `rpc_get_follow_count`
+  + also `rpc_get_follower_count` and `rpc_get_following_count` convenience
+    methods
+
 # Requirements
 
 Uses the following programs in addition to Bash:
