@@ -188,7 +188,7 @@ declare -A FOLLOWING
 # Locates followed users, checks them for updated activity, and makes notifications if any need to be made.
 check_followed(){
     local WHOM=${1}
-    local FOLLOW_COUNT=$(rpc_get_follow_count "${WHOM}")
+    local FOLLOW_COUNT=$(rpc_get_following_count "${WHOM}")
     local FOLLOWED=$(rpc_get_following "${WHOM}" "" ${FOLLOW_COUNT})
 
     for ((i=1;i<$((FOLLOW_COUNT+1));i++)) ; do

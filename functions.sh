@@ -804,11 +804,29 @@ rpc_get_following(){
 
 ##
 #     rpc_get_follow_count ACCOUNT [ENDPOINT]
-# Get the number of people an account is following.
+# Get the number of people an account is following or number of followers it has.
 rpc_get_follow_count(){
     local WHOM=${1}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
-    rpc_invoke call "\"follow_api\", \"get_follow_count\", [\"${WHOM}\" ]" "${ENDPOINT}" | jq '.follower_count'
+    rpc_invoke call "\"follow_api\", \"get_follow_count\", [\"${WHOM}\" ]" "${ENDPOINT}"
+}
+
+##
+#     rpc_get_following_count ACCOUNT [ENDPOINT]
+# Get the number of people an account is following.
+rpc_get_following_count(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_get_follow_count "${WHOM}" "${ENDPOINT}" | jq -r '.following_count'
+}
+
+##
+#     rpc_get_follower_count ACCOUNT [ENDPOINT]
+# Get the number of followers account has.
+rpc_get_follower_count(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_get_follow_count "${WHOM}" "${ENDPOINT}" | jq -r '.follower_count'
 }
 
 ##
