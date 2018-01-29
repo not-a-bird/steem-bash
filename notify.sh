@@ -36,6 +36,14 @@ get_event_count(){
 }
 
 ##
+# Sets up the notification function to be used based on the OS.
+if [[ "${OSTYPE}" =~ darwin* ]] ; then
+    NOTIFY_FUNC=notify_macs
+else
+    NOTIFY_FUNC=notify_linux
+fi
+
+##
 #     notify ICON TITLE MESSAGE
 #
 # If notify-send is installed, this will pop up a desktop notification.
@@ -43,11 +51,30 @@ notify(){
     local ICON=${1}
     local TITLE=${2}
     local MESSAGE=${3}
-    notify-send -t 1 ${ICON} "${TITLE}" "${MESSAGE}"
+    ${NOTIFY_FUNC} "${ICON}" "${TITLE}" "${MESSAGE}"
     local SUCCESS=$?
     echo "$TITLE"
     cat <<< "${MESSAGE}"
     return ${SUCCESS}
+}
+
+##
+# Used under Linux to create a notification.
+notify_linux(){
+    local ICON=${1}
+    local TITLE=${2}
+    local MESSAGE=${3}
+    notify-send -t 1000 ${ICON} "${TITLE}" "${MESSAGE}"
+}
+
+##
+# Used on MacOS to create a notification.  Called by Notify if the host is any
+# kind of Darwin.
+notiff_macos(){
+    local ICON=${1}
+    local TITLE=${2}
+    local MESSAGE=${3}
+    osascript -e "display notification \"${MESSAGE}\" with title \"${TITLE}\""
 }
 
 ###
