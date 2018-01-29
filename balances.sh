@@ -46,6 +46,7 @@ Get and display balance information about the specified user.
 - c CURRENCY (default is USD)
 - e specify service node endpoint
 - h show (this) help
+- l display (only) liquid asset values (SBD & STEEM)
 - p include pending payouts in output
 - s include SP in output
 - t enable stock ticker output
@@ -56,7 +57,7 @@ EOF
 
 CURRENCY=USD
 TIMER=0.25
-while getopts ":a:c:e:bhstT:wp" OPT; do
+while getopts ":a:c:e:bhlstT:wp" OPT; do
     case "${OPT}" in
         a )
         ALTCOIN[${#ALTCOIN[@]}]=${OPTARG}
@@ -69,6 +70,9 @@ while getopts ":a:c:e:bhstT:wp" OPT; do
         ;;
         e )
         RPC_ENDPOINT=${OPTARG}
+        ;;
+        l )
+        LIQUID=yes
         ;;
         s )
         SP=YES
@@ -119,8 +123,13 @@ else
                 SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
                 if [ ! -z "${WORTH}" ] ; then
                     STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
-                    printf -v BANKFMT "%'0.2f" $(math "${STEEM_BALANCE}*${STEEMV}+${SBD_BALANCE}*${SBDV}+${STEEM_POWER}*${STEEMV}")
-                    TICKERINFO="${TICKERINFO} worth: ${BANKFMT} ${CURRENCY}"
+                    if [ -z "${LIQUID}" ] ; then
+                        printf -v BANKFMT "%'0.2f" $(math "${STEEM_BALANCE}*${STEEMV}+${SBD_BALANCE}*${SBDV}+${STEEM_POWER}*${STEEMV}")
+                        TICKERINFO="${TICKERINFO} worth: ${BANKFMT} ${CURRENCY}"
+                    else
+                        printf -v BANKFMT "%'0.2f" $(math "${STEEM_BALANCE}*${STEEMV}+${SBD_BALANCE}*${SBDV}")
+                        TICKERINFO="${TICKERINFO} liquid worth: ${BANKFMT} ${CURRENCY}"
+                    fi
                 fi
                 if [ ! -z "${BALANCE}" ] ; then
                     TICKERINFO="${TICKERINFO} ${STEEM_BALANCE} STEEM"
