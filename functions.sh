@@ -744,6 +744,72 @@ rpc_get_reward_fund(){
 #             "verify_account_authority": 58,
 #             "verify_authority": 57
 
+##
+#     rpc_get_followers ACCOUNT START LIMIT [ENDPOINT]
+#
+# Get the list of accounts following a specified account.  You can pass an
+# empty start value, but  to fetch a page at a time, specify the last user name
+# recieved in successive calls.  Limit can be any (non-negative) number.
+rpc_get_followers(){
+    local WHOM=${1}
+    local START=${2}
+    local LIMIT=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+    local REMAINING=${LIMIT}
+    while [ ${REMAINING} -gt 0 ] ; do
+        local CLIMIT=100
+        if [ "${REMAINING}" -lt "${CLIMIT}" ] ; then
+            CLIMIT=${REMAINING}
+        fi
+        local RESULTS=$(rpc_invoke call "\"follow_api\", \"get_followers\", [\"${WHOM}\", \"${START}\", \"blog\", ${CLIMIT}]" "${ENDPOINT}" | jq -r '.[].follower')
+        START=$(tail -n 1 <<< "${RESULTS}")
+        local LINES=$(wc -l <<< "${RESULTS}")
+        cat <<< "${RESULTS}"
+        if [ "${LINES}" -lt "${CLIMIT}" ] ; then
+            break
+        fi
+        REMAINING=$((REMAINING-100))
+    done
+}
+
+
+##
+#     rpc_get_following ACCOUNT START LIMIT [ENDPOINT]
+#
+# Get the list of accounts being followed by a specified account.  You can pass
+# an empty start value, but  to fetch a page at a time, specify the last user
+# name recieved in successive calls.  Limit can be any (non-negative) number.
+rpc_get_following(){
+    local WHOM=${1}
+    local START=${2}
+    local LIMIT=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+
+    local REMAINING=${LIMIT}
+    while [ ${REMAINING} -gt 0 ] ; do
+        local CLIMIT=100
+        if [ "${REMAINING}" -lt "${CLIMIT}" ] ; then
+            CLIMIT=${REMAINING}
+        fi
+        local RESULTS=$(rpc_invoke call "\"follow_api\", \"get_following\", [\"${WHOM}\", \"${START}\", \"blog\", ${CLIMIT}]" "${ENDPOINT}" | jq -r '.[].following')
+        START=$(tail -n 1 <<< "${RESULTS}")
+        local LINES=$(wc -l <<< "${RESULTS}")
+        cat <<< "${RESULTS}"
+        if [ "${LINES}" -lt "${CLIMIT}" ] ; then
+            break
+        fi
+        REMAINING=$((REMAINING-100))
+    done
+}
+
+##
+#     rpc_get_follow_count ACCOUNT [ENDPOINT]
+# Get the number of people an account is following.
+rpc_get_follow_count(){
+    local WHOM=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke call "\"follow_api\", \"get_follow_count\", [\"${WHOM}\" ]" "${ENDPOINT}" | jq '.follower_count'
+}
 
 ##
 #     get_payout <AUTHOR> <LIMIT> [ENDPOINT]
