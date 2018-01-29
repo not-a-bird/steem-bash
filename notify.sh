@@ -38,7 +38,7 @@ get_event_count(){
 ##
 # Sets up the notification function to be used based on the OS.
 if [[ "${OSTYPE}" =~ darwin* ]] ; then
-    NOTIFY_FUNC=notify_macs
+    NOTIFY_FUNC=notify_macos
 else
     NOTIFY_FUNC=notify_linux
 fi
@@ -70,7 +70,7 @@ notify_linux(){
 ##
 # Used on MacOS to create a notification.  Called by Notify if the host is any
 # kind of Darwin.
-notiff_macos(){
+notify_macos(){
     local ICON=${1}
     local TITLE=${2}
     local MESSAGE=${3}
