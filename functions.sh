@@ -222,6 +222,30 @@ get_bank(){
 }
 
 ##
+#     get_liquid <username> [currency]
+# Get the sum of the user's SBD and STEEM (not SP).
+get_liquid(){
+    local WHOM=${1}
+    local CURRENCY=${2:-USD}
+    local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
+    local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
+    local SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
+    local SUCCESS=1
+    local WHERE
+
+    WHERE=$(rpc_get_accounts "${WHOM}" | jq '.[0]')
+    if [ $? -eq 0 ] ; then
+        local SBD_BALANCE=$(jq  -r '.sbd_balance' <<< "${WHERE}" | cut -f1 -d" ")
+        local BALANCE=$(jq -r '.balance' <<< "${WHERE}" |  cut -f1 -d" ")
+        local LIQUID=$(math "${BALANCE}*${STEEMV} + ${SBD_BALANCE}*${SBDV}" 8)
+        SUCCESS=0
+        printf "%0.02f" "${LIQUID}"
+    fi
+
+    return "${SUCCESS}"
+}
+
+##
 # RPC Functionsa
 # These are cobbled togethe from the python api as I'm not sure where the exact documentation is located (yet).
 # They all output JSON as their result.
