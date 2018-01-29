@@ -87,11 +87,17 @@ handle_comment(){
     local AUTHOR=$(jq -r '.[1].author' <<< "${HISTORY}" )
     local PERMLINK=$(jq -r '.[1].permlink' <<< "${HISTORY}" )
     local PARENT_PERMLINK=$(jq -r '.[1].parent_permlink' <<< "${HISTORY}")
+    local PARENT_AUTHOR=$(jq -r '.[1].parent_author' <<< "${HISTORY}")
     if [ "${AUTHOR}" != "${WHOM}" ] ; then
         local CONTENT=$(rpc_get_content "${AUTHOR}" "${PARENT_PERMLINK}")
         local TITLE=$(jq -r '.title' <<< "${CONTENT}")
         CONTENT=$(rpc_get_content "${AUTHOR}" "${PERMLINK}" | jq -r '.body')
-        notify "-i notification-message-im" "Comment" "${AUTHOR} just commented on your post ${TITLE}: ${CONTENT}"
+        if [ "${PARENT_AUTHOR}" = "${WHOM}" ] ; then
+            PARENT_AUTHOR="your"
+        else
+            PARENT_AUTHOR="${PARENT_AUTHOR}'s"
+        fi
+        notify "-i notification-message-im" "Comment" "${AUTHOR} just commented on ${PARENT_AUTHOR} post ${TITLE}: ${CONTENT}"
     else
         error "Skipping comment made by user"
     fi
@@ -121,13 +127,19 @@ handle_vote(){
     local WHOM=${1}
     local HISTORY=$(cat)
     local VOTER=$(jq -r '.[1].voter' <<< "${HISTORY}" )
-    local PERMLINK=$(jq -r '.[1].permlink' <<< "${HISTORY}" )
+    local PERMLINK=$(jq -r '.[1].permlink' <<< "${HISTORY}")
+    local AUTHOR=$(jq -j '.[1].author' <<< "${HISTORY}")
     local ICON="-i face-smile"
     if [ "${VOTER}" != "${WHOM}" ] ; then
         cat <<<${HISTORY}
         local WEIGHT=$(($(jq -r '.[1].weight' <<< "${HISTORY}")/100))
         local CONTENT=$(rpc_get_content "${AUTHOR}" "${PERMLINK}")
-        notify "${ICON}" "Vote!" "${VOTER} just voted ${WEIGHT}% on your post! $(jq -r '.title' <<< "${CONTENT}")"
+        if [ "${AUTHOR}" = "${WHOM}" ] ; then
+            AUTHOR="your"
+        else
+            AUTHOR="${AUTHOR}'s"
+        fi
+        notify "${ICON}" "Vote!" "${VOTER} just voted ${WEIGHT}% on ${AUTHOR} post! $(jq -r '.title' <<< "${CONTENT}")"
         #FIXME: come back later and compute value of vote in SBD.
     else
         error "Skipping outgoing vote by author..."
@@ -169,25 +181,115 @@ handle_transfer(){
     fi
 }
 
+##
+# Global list of accounts being followed
+declare -A FOLLOWING
+##
+# Locates followed users, checks them for updated activity, and makes notifications if any need to be made.
+check_followed(){
+    local WHOM=${1}
+    local FOLLOW_COUNT=$(rpc_get_follow_count "${WHOM}")
+    local FOLLOWED=$(rpc_get_following "${WHOM}" "" ${FOLLOW_COUNT})
+
+    for ((i=1;i<$((FOLLOW_COUNT+1));i++)) ; do
+        local FOLLOWER=$(head -n $i <<< "${FOLLOWED}" | tail -n 1)
+        local CURRENT=$(get_event_count "${FOLLOWER}")
+
+        if [ ! -z "${FOLLOWING[${FOLLOWER}]}" ] ; then
+            if [ "${FOLLOWING[${FOLLOWER}]}" != "${CURRENT}" ] ; then
+                local DIFF=$((CURRENT-${FOLLOWING[${FOLLOWER}]}))
+                HISTORY=$(rpc_get_account_history "${FOLLOWER}" -1 "${DIFF}")
+                for ((i=0;i<$DIFF;i++)) ; do
+                    #echo $(jq -r ".[$i][0]" <<< "${HISTORY}")
+                    OP=$(jq -r ".[$i][1].op[0]" <<< "${HISTORY}")
+                    ENTRY=$(jq -r ".[$i][1].op" <<< "${HISTORY}")
+                    case "${OP}" in
+                        "comment")
+                            handle_comment "${WHOM}" <<< "${ENTRY}"
+                            ;;
+                        "vote")
+                            handle_vote "${WHOM}" <<< "${ENTRY}"
+                            ;;
+                        "transfer")
+                            handle_transfer "${WHOM}" <<< "${ENTRY}"
+                            ;;
+                        *)
+                            verbose ">>>skipping follower ${OP}"
+                            ;;
+                    esac
+                done
+            fi
+        fi
+        FOLLOWING[${FOLLOWER}]=${CURRENT}
+    done
+}
+
+##
+# Display help message.
+usage(){
+    cat << EOF
+Usage:
+    ${0} -f ACCOUNT
+
+Listen for any activity with the specified account (your account) and report on
+any incoming votes, transfers, rewards, etc.
+
+To listen for activity on any accounts you follow, provide -f and you'll also
+see notifications for votes and comments on accounts you follow.
+EOF
+}
+while getopts ":fv" OPT ; do
+    case "${OPT}" in
+        f)
+            FOLLOW="yes"
+            ;;
+        v)
+            VERBOSE="yes"
+            ;;
+        *)
+            usage
+            exit
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+##
+#    verbose MESSAGE
+# Convenience method for verbose output.
+# Displays provided message if VERBOSE global is set.
+verbose(){
+    if [ ! -z ${VERBOSE} ] ; then
+        echo $@
+    fi
+}
 
 ACCOUNT=${1}
 if [ -z "${ACCOUNT}" ] ;then
     error "Specify an account to watch!"
     exit 1
 fi
-#set -x
+
 CURRENT=$(get_event_count "${ACCOUNT}")
 LAST=${CURRENT}
+if [ ! -z "${FOLLOW}" ] ; then
+    echo "Listening for follower activity, too."
+fi
 while true; do
+    if [ ! -z "${FOLLOW}" ] ; then
+        verbose "$(date) Checking follows..."
+        check_followed "${ACCOUNT}"
+        verbose "$(date) Checked follows."
+    fi
     if [ "$CURRENT" -ne "$LAST" ] ; then
         COUNT=$((CURRENT-LAST))
-        echo "update needed ($COUNT)"
+        verbose "update needed ($COUNT)"
         HISTORY=$(rpc_get_account_history "${ACCOUNT}" -1 "${COUNT}")
         for ((i=0;i<$COUNT;i++)) ; do
             echo $(jq -r ".[$i][0]" <<< "${HISTORY}")
             OP=$(jq -r ".[$i][1].op[0]" <<< "${HISTORY}")
             ENTRY=$(jq -r ".[$i][1].op" <<< "${HISTORY}")
-            cat <<< "${ENTRY}"
+            #cat <<< "${ENTRY}"
             case "${OP}" in
                 "comment")
                     handle_comment "${ACCOUNT}" <<< "${ENTRY}"
@@ -205,7 +307,7 @@ while true; do
                     handle_transfer "${ACCOUNT}" <<< "${ENTRY}"
                     ;;
                 *)
-                    echo ">>>skipping ${OP}"
+                    verbose ">>>skipping ${OP}"
                     ;;
             esac
         done
