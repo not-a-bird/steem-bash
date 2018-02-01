@@ -128,7 +128,7 @@ handle_vote(){
     local HISTORY=$(cat)
     local VOTER=$(jq -r '.[1].voter' <<< "${HISTORY}" )
     local PERMLINK=$(jq -r '.[1].permlink' <<< "${HISTORY}")
-    local AUTHOR=$(jq -j '.[1].author' <<< "${HISTORY}")
+    local AUTHOR=$(jq -r '.[1].author' <<< "${HISTORY}")
     local ICON="-i face-smile"
     if [ "${VOTER}" != "${WHOM}" ] ; then
         cat <<<${HISTORY}
@@ -181,6 +181,7 @@ handle_transfer(){
     fi
 }
 
+
 ##
 # Global list of accounts being followed
 declare -A FOLLOWING
@@ -193,6 +194,9 @@ check_followed(){
 
     for ((i=1;i<$((FOLLOW_COUNT+1));i++)) ; do
         local FOLLOWER=$(head -n $i <<< "${FOLLOWED}" | tail -n 1)
+        if inlist "${FOLLOWER}" ${IGNORE[@]} ; then
+            continue
+        fi
         local CURRENT=$(get_event_count "${FOLLOWER}")
 
         if [ ! -z "${FOLLOWING[${FOLLOWER}]}" ] ; then
@@ -202,6 +206,12 @@ check_followed(){
                 for ((i=0;i<$DIFF;i++)) ; do
                     #echo $(jq -r ".[$i][0]" <<< "${HISTORY}")
                     OP=$(jq -r ".[$i][1].op[0]" <<< "${HISTORY}")
+                    if [ ${#FTYPE[@]} -gt 0 ] ; then
+                        if ! inlist "${OP}" "${FTYPE[@]}" ; then
+                            verbose ">>>skipping follower ${OP}"
+                            continue
+                        fi
+                    fi
                     ENTRY=$(jq -r ".[$i][1].op" <<< "${HISTORY}")
                     case "${OP}" in
                         "comment")
@@ -213,8 +223,14 @@ check_followed(){
                         "transfer")
                             handle_transfer "${WHOM}" <<< "${ENTRY}"
                             ;;
+                        "author_reward")
+                            handle_reward "${WHOM}" <<< "${ENTRY}"
+                            ;;
+                        "curation_reward")
+                            handle_curation "${WHOM}" <<< "${ENTRY}"
+                            ;;
                         *)
-                            verbose ">>>skipping follower ${OP}"
+                            verbose ">>>skipping (followed) ${OP}"
                             ;;
                     esac
                 done
@@ -229,22 +245,46 @@ check_followed(){
 usage(){
     cat << EOF
 Usage:
-    ${0} -f ACCOUNT
+    ${0} [-i IGNORE ...] [-t TYPE ...] -f ACCOUNT
 
 Listen for any activity with the specified account (your account) and report on
 any incoming votes, transfers, rewards, etc.
 
 To listen for activity on any accounts you follow, provide -f and you'll also
 see notifications for votes and comments on accounts you follow.
+
+Optionally, specify names (-i INGORE) to ignore with regard to following.
+
+Optionally, specify types (-t TYPE) of messages to watch.
+
+Optionally, specify types (-T TYPE) of messages to watch with regard to following.
+
+Supported TYPEs for -t and -T:
+
+ * author_reward
+ * comment
+ * curation_reward
+ * transfer
+ * vote
+
 EOF
 }
-while getopts ":fv" OPT ; do
+while getopts ":fvi:t:T:" OPT ; do
     case "${OPT}" in
         f)
             FOLLOW="yes"
             ;;
+        i)
+            IGNORE[${#IGNORE[@]}]=${OPTARG}
+            ;;
         v)
             VERBOSE="yes"
+            ;;
+        t)
+            TYPE[${#TYPE[@]}]=${OPTARG}
+            ;;
+        T)
+            FTYPE[${#FTYPE[@]}]=${OPTARG}
             ;;
         *)
             usage
@@ -289,6 +329,12 @@ while true; do
             echo $(jq -r ".[$i][0]" <<< "${HISTORY}")
             OP=$(jq -r ".[$i][1].op[0]" <<< "${HISTORY}")
             ENTRY=$(jq -r ".[$i][1].op" <<< "${HISTORY}")
+            if [ ${#TYPE[@]} -gt 0 ] ; then
+                if ! inlist "${OP}" "${TYPE[@]}" ; then
+                    verbose ">>>skipping ignored ${OP}"
+                    continue
+                fi
+            fi
             #cat <<< "${ENTRY}"
             case "${OP}" in
                 "comment")
