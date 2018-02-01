@@ -34,7 +34,7 @@ trap cleanup exit SIGTERM
 usage(){
     cat << EOF
 Usage:
-    ${0}  [-b] [-e EXCLUDE] [-l LIMIT] [-p] [-t TAG ...] -u <USER>
+    ${0}  [-b] [-e EXCLUDE ...] [-l LIMIT] [-p] [-t TAG ...] -u <USER>
 
 Get and display posts for the specified user (and optionally tags.) Optionally
 exclude any articles that are tagged with EXCLUDE tag.  These can be displayed
@@ -50,38 +50,6 @@ payment information.
 - r reverse the post order
 - u include user name in link
 EOF
-}
-
-##
-# Helper function, tests to see if a value is in a list.
-# Returns 0 if the value is in the list.
-inlist(){
-    local ARG=${1}
-    shift 1
-    local LIST=${@}
-    local IN=
-    for V in ${LIST} ; do
-        if [ "${V}" == "${ARG}" ] ; then
-            IN=yes
-            break;
-        fi
-    done
-    test -n "${IN}"
-}
-
-
-##
-# Helper function, tests to see if any value from a list is in another list.
-# Return 0 if any values are in the second list.
-listinlist(){
-    local LIST1=${1}
-    local LIST2=${2}
-    for V in ${LIST1} ; do
-        if inlist "${V}" ${LIST2} ; then
-            return 0
-        fi
-    done
-    return 1
 }
 
 TIMER=0.25
