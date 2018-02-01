@@ -63,17 +63,53 @@ Examples:
     not-a-bird  worth: 0.10 BTC 1.899 STEEM 2.027 SBD 1.000 Savings pending payout: 248.88 SBD (BTC: 0.094)
     ned  worth: 1,452.40 BTC 141871.305 STEEM 5743.288 SBD 0.000 Savings pending payout: 0.00 SBD (BTC: 0.000)
 
-The `notify.sh` script takes a single argument that is the user to watch and it
-will create desktop notifications for any of the following incoming activities:
+The `graphprices.sh` script takes a few options:
 
-    * upvotes
-    * transfers
-    * comments
-    * rewards
+    Usage:
+        ./graphprices.sh [-s SLEEP] [-c CURRENCY] <COIN ...>
 
-A `-f` option to watch followers of the specified account has been added that
-will produce voting and comment notifications for any accoutns that are being
-followed by the specified account.
+    Get the values of the specified coins in the specified currencies and then graph them with gnuplot.
+
+    - c CURRENCY (default is USD)
+    - s SLEEP seconds to wait between updates (default is 30)
+
+This script will use gnuplot to display coin values over time.  Beginning from
+whenever it is launched it will check the coin prices every SLEEP interval and
+graph the resulting values with gnuplot.
+
+Example:
+
+    $ ./graphprices.sh STEEM SBD
+
+The result looks something like the following:
+
+![SBD and STEEM](https://steemitimages.com/DQmZDx4w1nxM8WV9SNX9JGXzh6EHRCTuZ744AtC41vG92Ys/2018_01_31_Jan_23%3A54%3A04.png)
+
+
+The `notify.sh` script takes a number of options now:
+
+    Usage:
+        ./notify.sh [-i IGNORE ...] [-t TYPE ...] -f ACCOUNT
+
+    Listen for any activity with the specified account (your account) and report on
+    any incoming votes, transfers, rewards, etc.
+
+    To listen for activity on any accounts you follow, provide -f and you'll also
+    see notifications for votes and comments on accounts you follow.
+
+    Optionally, specify names (-i INGORE) to ignore with regard to following.
+
+    Optionally, specify types (-t TYPE) of messages to watch.
+
+    Optionally, specify types (-T TYPE) of messages to watch with regard to following.
+
+    Supported TYPEs for -t and -T:
+
+     * author_reward
+     * comment
+     * curation_reward
+     * transfer
+     * vote
 
 For notifications to work, notify-send must be installed and the notification
 daemon needs to be running.  Otherwise the script will dump debugging messages
@@ -155,6 +191,7 @@ Current set of RPC functions:
  * `rpc_get_active_witnesses()`
  * `rpc_get_block()`
  * `rpc_get_chain_properties()`
+ * `rpc_get_comment_discussions_by_payout()`
  * `rpc_get_config()`
  * `rpc_get_content()`
  * `rpc_get_content_replies()`
