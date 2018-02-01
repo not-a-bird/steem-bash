@@ -30,6 +30,37 @@ math(){
 }
 
 ##
+# Helper function, tests to see if a value is in a list.
+# Returns 0 if the value is in the list.
+inlist(){
+    local ARG=${1}
+    shift 1
+    local LIST=${@}
+    local IN=
+    for V in ${LIST} ; do
+        if [ "${V}" == "${ARG}" ] ; then
+            IN=yes
+            break;
+        fi
+    done
+    test -n "${IN}"
+}
+
+##
+# Helper function, tests to see if any value from a list is in another list.
+# Return 0 if any values are in the second list.
+listinlist(){
+    local LIST1=${1}
+    local LIST2=${2}
+    for V in ${LIST1} ; do
+        if inlist "${V}" ${LIST2} ; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+##
 # Fetch the specified URI, but if there is a connection issue fall back on the
 # RECOVERY method to decide how to proceed.
 #
@@ -521,15 +552,19 @@ rpc_get_discussions_by_author_before_date(){
 }
 
 ##
-#     rpc_get_discussions_by_cashout <TAG> <LIMIT> [ENDPOINT]
-#
-# FIXME: Gets the top level posts by a query object, which is confusing because
-# the docs say otherwise.
+#     rpc_get_discussions_by_cashout <TAG> <LIMIT> <START_AUTHOR> [ENDPOINT]
+# The start_author is optional, use the empty string '' to leave it empty.
+# Get the top level discussions under TAG
 rpc_get_discussions_by_cashout(){
     local TAG=${1}
     local LIMIT=${2}
-    local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_cashout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    local AUTHOR=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+    if [ ! -z "${AUTHOR}" ] ; then
+        AUTHOR="\"start_author\": \"${AUTHOR}\","
+    fi
+
+    rpc_invoke get_discussions_by_cashout  "{ ${AUTHOR} \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 
 ##
@@ -548,7 +583,7 @@ rpc_get_discussions_by_blog(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_blog  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_blog  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_children
@@ -556,7 +591,7 @@ rpc_get_discussions_by_children(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_children  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_children  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_comments
@@ -564,7 +599,7 @@ rpc_get_discussions_by_comments(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_comments  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_comments  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_created
@@ -572,7 +607,7 @@ rpc_get_discussions_by_created(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_created  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_created  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_feed
@@ -580,7 +615,7 @@ rpc_get_discussions_by_feed(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_feed  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_feed  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_hot
@@ -588,15 +623,7 @@ rpc_get_discussions_by_hot(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_hot  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
-}
-##
-#    rpc_get_discussions_by_payout
-rpc_get_discussions_by_payout(){
-    local TAG=${1}
-    local LIMIT=${2}
-    local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_payout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_hot  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_promoted
@@ -604,7 +631,7 @@ rpc_get_discussions_by_promoted(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_promoted  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_promoted  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_trending
@@ -612,7 +639,7 @@ rpc_get_discussions_by_trending(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_trending  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_trending  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_votes
@@ -620,23 +647,42 @@ rpc_get_discussions_by_votes(){
     local TAG=${1}
     local LIMIT=${2}
     local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_votes  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    rpc_invoke get_discussions_by_votes  "{ \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 ##
 #    rpc_get_discussions_by_payout
 rpc_get_discussions_by_payout(){
     local TAG=${1}
     local LIMIT=${2}
-    local ENDPOINT=${3:-${RPC_ENDPOINT}}
-    rpc_invoke get_discussions_by_payout  "{ \"tag\": \"${TAG}\", \"limit\": \"${LIMIT}\" }" "${ENDPOINT}"
+    local PERMLINK=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+
+    if [ ! -z "${PERMLINK}" ] ; then
+        PERMLINK="\"start_permlink\": \"${PERMLINK}\""
+    fi
+    rpc_invoke get_discussions_by_payout  "{ $PERMLINK \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
+}
+
+##
+#     rpc_get_comment_discussions_by_payout <TAG> <LIMIT> [START_PERMLINK] [ENDPOINT]
+# Pass empty string to omit the optional START_PERMLINK
+rpc_get_comment_discussions_by_payout(){
+    local TAG=${1}
+    local LIMIT=${2}
+    local PERMLINK=${3}
+    local ENDPOINT=${4:-${RPC_ENDPOINT}}
+
+    if [ ! -z "${PERMLINK}" ] ; then
+        PERMLINK="\"start_permlink\": \"${PERMLINK}\""
+    fi
+    rpc_invoke get_comment_discussions_by_payout  "{ $PERMLINK \"tag\": \"${TAG}\", \"limit\": ${LIMIT} }" "${ENDPOINT}"
 }
 
 ##
 # TODO:
 #             "cancel_all_subscriptions": 3, (?)
-#             "get_account_bandwidth": 45, (what is the account type field?)
+#             "get_account_bandwidth": 45, (needs to be refactored for steem?)
 #             "get_account_references": 35, (needs to be refactored for steem?)
-#             "get_comment_discussions_by_payout": 8, (arguments?)
 
 ##
 #    get_dynamic_global_properties [ENDPOINT]
@@ -699,6 +745,15 @@ rpc_get_hardfork_version(){
     rpc_invoke get_hardfork_version
 }
 
+###
+#    rpc_get_liquidity_queue <AUTHOR> <LIMIT>
+#
+rpc_get_liquidity_queue(){
+    local ACCOUNT=${1}
+    local LIMIT=${2}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_escrow "\"${ACCOUNT}\", ${LIMIT}" "${ENDPOINT}"
+}
 
 
 #             "get_key_references": 33, (deprecated, use ... soemthing else...)
@@ -715,10 +770,12 @@ rpc_get_hardfork_version(){
 #             "get_replies_by_last_update": 64,
 #             "get_required_signatures": 55,
 #             "get_reward_fund": 32,
+
 rpc_get_reward_fund(){
     local NAME=${1}
+    local FUND=${2:-post}
     local ENDPOINT=${2:-${RPC_ENDPOINT}}
-    rpc_invoke get_reward_fund '"post"'
+    rpc_invoke get_reward_fund "\"${FUND}\"" "${ENDPOINT}"
 }
 
 #             "get_savings_withdraw_from": 46,
