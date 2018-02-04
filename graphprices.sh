@@ -64,8 +64,8 @@ appendline(){
     local CURRENCY=${3}
     local PRICES
     PRICES=$(get_prices "${ALTCOINS}" "${CURRENCY}")
-    echo -n "$(date +"${DATEFMT}")" >> "${FILE}"
     if [ $? -eq 0 ] ; then
+        echo -n "$(date +"${DATEFMT}")" >> "${FILE}"
         for COIN in ${ALTCOINS} ; do
             echo -n "	$(jq -r ".${COIN}.${CURRENCY}" <<< $PRICES)"
         done >> "${FILE}"
@@ -93,5 +93,5 @@ cat << EOF
     reread
 EOF
 sleep "${SLEEP}"
-done ) | gnuplot
+done ) | tee >(cat >&2) |  gnuplot
 
