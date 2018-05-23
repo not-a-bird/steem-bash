@@ -215,6 +215,12 @@ Current set of RPC functions:
  * `rpc_get_expiring_vesting_delegations()`
  * `rpc_get_feed_history()`
  * `rpc_get_hardfork_version()`
+ * `rpc_get_miner_queue()`
+ * `rpc_get_next_scheduled_hardfork()`
+ * `rpc_get_open_orders()`
+ * `rpc_get_ops_in_block()`
+ * `rpc_get_state()`
+ * `rpc_get_tags_used_by_author()`
  * `rpc_get_reward_fund()`
  * `rpc_invoke()`
  * `rpc_raw()`

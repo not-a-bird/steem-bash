@@ -16,6 +16,7 @@
 #- w include total account worth in output
 #- T time to sleep between ticker line updates
 
+#set -x
 
 ##
 # On exit make the cursor visible.
@@ -119,10 +120,10 @@ else
                 VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
                 STEEM_SAVINGS=$(jq -r '.savings_balance' <<< "${WHERE}" | cut -f1 -d" ")
                 STEEM_POWER=$(get_steempower_for_vests "$VESTING_SHARES")
-                PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
-                SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
+                PRICES=$(get_prices "${STEEM_TICKER} ${SBD_TICKER}" "${CURRENCY}")
+                SBDV=$(jq ".\"${SBD_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
                 if [ ! -z "${WORTH}" ] ; then
-                    STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
+                    STEEMV=$(jq ".\"${STEEM_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
                     if [ -z "${LIQUID}" ] ; then
                         printf -v BANKFMT "%'0.2f" $(math "${STEEM_BALANCE}*${STEEMV}+${SBD_BALANCE}*${SBDV}+${STEEM_POWER}*${STEEMV}")
                         TICKERINFO="${TICKERINFO} worth: ${BANKFMT} ${CURRENCY}"
@@ -152,7 +153,7 @@ else
         if [ "${#ALTCOIN}" -gt 0 ] ; then
             ALTPRICES=$(get_prices "${ALTCOIN[*]}" "${CURRENCY}")
             for COIN in ${ALTCOIN[@]} ; do
-                TICKERINFO="${TICKERINFO} [[${COIN}: $(jq ".${COIN}.${CURRENCY}" <<< ${ALTPRICES})]] "
+                TICKERINFO="${TICKERINFO} [[${COIN}: $(jq ".\"${COIN}\".\"${CURRENCY}\"" <<< ${ALTPRICES})]] "
             done
         fi
         if [ ! -z "${TICKER}" ] ; then

@@ -10,6 +10,9 @@
 # Possible values are slow or fast.  Slow will try to reconnect.  Fast will fail fast.
 RECOVERY=slow
 
+SBD_TICKER="SBD*"
+STEEM_TICKER="STEEM"
+
 ##
 #     error <message>
 #
@@ -236,9 +239,9 @@ get_bank(){
 
     WHERE=$(rpc_get_accounts "${WHOM}" | jq '.[0]')
     if [ $? -eq 0 ] ; then
-        local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
-        local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
-        local SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
+        local PRICES=$(get_prices "${STEEM_TICKER} ${STEEM_TICKER}" "${CURRENCY}")
+        local STEEMV=$(jq ".\"${STEEM_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
+        local SBDV=$(jq ".\"${SBD_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
         local BALANCE=$(jq -r '.balance' <<< "${WHERE}" |  cut -f1 -d" ")
         local SBD_BALANCE=$(jq  -r '.sbd_balance' <<< "${WHERE}" | cut -f1 -d" ")
         local VESTING_SHARES=$(jq -r '.vesting_shares' <<< "${WHERE}" | cut -f1 -d" ")
@@ -258,9 +261,9 @@ get_bank(){
 get_liquid(){
     local WHOM=${1}
     local CURRENCY=${2:-USD}
-    local PRICES=$(get_prices "STEEM SBD" "${CURRENCY}")
-    local STEEMV=$(jq ".STEEM.${CURRENCY}" <<< $PRICES)
-    local SBDV=$(jq ".SBD.${CURRENCY}" <<< $PRICES)
+    local PRICES=$(get_prices "${STEEM_TICKER} ${SBD_TICKER}" "${CURRENCY}")
+    local STEEMV=$(jq ".\"${STEEM_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
+    local SBDV=$(jq ".\"${STEEM_TICKER}\".\"${CURRENCY}\"" <<< $PRICES)
     local SUCCESS=1
     local WHERE
 
@@ -278,7 +281,7 @@ get_liquid(){
 
 ##
 # RPC Functionsa
-# These are cobbled togethe from the python api as I'm not sure where the exact documentation is located (yet).
+# These are cobbled together from the python api as I'm not sure where the exact documentation is located (yet).
 # They all output JSON as their result.
 # Do distinguish RPC functions from other functions, all RPC functions begin with rpc_
 RPC_ENDPOINT="https://steemd.privex.io"
@@ -755,21 +758,58 @@ rpc_get_liquidity_queue(){
     rpc_invoke get_escrow "\"${ACCOUNT}\", ${LIMIT}" "${ENDPOINT}"
 }
 
+rpc_get_miner_queue(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_miner_queue "${ENDPOINT}"
+}
+
+rpc_get_next_scheduled_hardfork(){
+    local ENDPOINT=${1:-${RPC_ENDPOINT}}
+    rpc_invoke get_next_scheduled_hardfork "${ENDPOINT}"
+}
+
+##
+#     rpc_get_open_orders <NAME> [ENDPOINT]
+# Fetch the outstanding orders for the provided account names.
+rpc_get_open_orders(){
+    local NAME=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke get_open_orders "\"${NAME}\"" "${ENDPOINT}"
+}
+
+##
+#     rpc_get_order_book [LIMIT] [ENDPOINT]
+# Get the last LIMIT open buy/sell orders
+rpc_get_order_book(){
+    local LIMIT=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke get_order_book "\"${LIMIT}\"" "${ENDPOINT}"
+}
+
+
 
 #             "get_key_references": 33, (deprecated, use ... soemthing else...)
-#             "get_liquidity_queue": 52,
-#             "get_miner_queue": 71,
-#             "get_next_scheduled_hardfork": 31,
-#             "get_open_orders": 51,
+
+
 #             "get_ops_in_block": 22,
-#             "get_order_book": 50,
-#             "get_owner_history": 41,
+##
+#     rpc_get_ops_in_block <BLOCKNUM> [VIRTUAL]
+# Fetch operations that were done in a given block, pass in the VIRTUAL (1 or
+# 0) to specify that only virtual operations should be included.
+rpc_get_ops_in_block(){
+    local BLOCK=${1}
+    local VIRTUAL=${2:-0}
+    local ENDPOINT=${3:-${RPC_ENDPOINT}}
+    rpc_invoke get_ops_in_block "${BLOCK}, ${VIRTUAL}" "${ENDPOINT}"
+}
+
+#             "get_ops_in_block": 22,
+#             "get_owner_history": 41, (seems to return empty...)
 #             "get_post_discussions_by_payout": 7,
 #             "get_potential_signatures": 56,
 #             "get_recovery_request": 42,
 #             "get_replies_by_last_update": 64,
 #             "get_required_signatures": 55,
-#             "get_reward_fund": 32,
 
 rpc_get_reward_fund(){
     local NAME=${1}
@@ -780,8 +820,24 @@ rpc_get_reward_fund(){
 
 #             "get_savings_withdraw_from": 46,
 #             "get_savings_withdraw_to": 47,
-#             "get_state": 23,
-#             "get_tags_used_by_author": 5,
+
+rpc_get_state(){
+    local PATH=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke get_state "${PATH}" "${ENDPOINT}"
+}
+
+##
+# This fetches the top-level tags, NOT the json metadata tags that people might
+# expect which are the normal tags associated with an article, for example.
+rpc_get_tags_used_by_author(){
+    local AUTHOR=${1}
+    local ENDPOINT=${2:-${RPC_ENDPOINT}}
+    rpc_invoke get_tags_used_by_author "\"${AUTHOR}\"" "${ENDPOINT}"
+}
+
+
+
 #             "get_transaction": 54,
 #             "get_transaction_hex": 53,
 #             "get_trending_tags": 4,
@@ -947,7 +1003,7 @@ get_sbd(){
 ##
 # Convert the provided date to seconds.
 date_to_seconds(){
-    date -d ${1} +"%s"
+    date -d "${1}" +"%s"
 }
 
 ##
@@ -962,6 +1018,7 @@ get_total_incoming(){
     local LASTCHUNK=1000
 
     local TOTAL=0
+    local SENTINEL=0
     local DONE=
     while [ -z "${DONE}" ] ; do
         #get a set of records
@@ -995,7 +1052,7 @@ get_total_incoming(){
                     # NEED TO CONVERT THE VEST TO STEEM AND GET THE DOLLAR VALUE IMMEDIATELY FOR INCOME TAX VALUE!
                     local VESTS=$(jq -r ".[$i][1].op[1].reward" <<< ${HISTORY} | cut -f1 -d' ')
                     local STEEMVALUE=$(math "$VESTS * $VESTVALUE")
-                    local CURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                    local CURRENCYVALUE=$(math "$(get_historic_price "${STEEM_TICKER}" ${TS} ${CURRENCY})*${STEEMVALUE}")
                     TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
                     echo "0	0	${VESTS}	${STEEMVALUE}	${CURRENCYVALUE}"
                 elif [ "${OP}" = "author_reward" ] ; then
@@ -1003,11 +1060,11 @@ get_total_incoming(){
                     echo -n $(jq -r ".[$i][1].op[1] | .steem_payout, .sbd_payout, .vesting_payout " <<< ${HISTORY} | cut -f1 -d' ' | xargs | sed 's/ /	/g')
                     local VESTS=$(jq -r ".[$i][1].op[1] | .vesting_payout " <<< ${HISTORY} | cut -f1 -d' ')
                     local VESTSTEEMVALUE=$(math "$VESTS * $VESTVALUE")
-                    local VESTCURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${VESTSTEEMVALUE}")
+                    local VESTCURRENCYVALUE=$(math "$(get_historic_price "${STEEM_TICKER}" ${TS} ${CURRENCY})*${VESTSTEEMVALUE}")
                     local SBDVALUE=$(jq -r ".[$i][1].op[1] | .sbd_payout " <<< ${HISTORY} | cut -f1 -d' ')
-                    local SBDCURRENCYVALUE=$(math "$(get_historic_price SBD ${TS} ${CURRENCY})*${SBDVALUE}")
+                    local SBDCURRENCYVALUE=$(math "$(get_historic_price ${SBD_TICKER} ${TS} ${CURRENCY})*${SBDVALUE}")
                     local STEEMVALUE=$(jq -r ".[$i][1].op[1] | .steem_payout " <<< ${HISTORY} | cut -f1 -d' ')
-                    local STEEMCURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                    local STEEMCURRENCYVALUE=$(math "$(get_historic_price "${STEEM_TICKER}" ${TS} ${CURRENCY})*${STEEMVALUE}")
                     local CURRENCYVALUE=$(math ${SBDCURRENCYVALUE}+${STEEMCURRENCYVALUE}+${VESTSTEEMVALUE})
                     echo "	-	${CURRENCYVALUE}"
                     TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
@@ -1021,11 +1078,11 @@ get_total_incoming(){
                         if [ "$(echo ${AMOUNT} | cut -f2 -d' ')" = "STEEM" ] ; then
                             STEEM=$(echo ${AMOUNT} | cut -f1 -d' ')
                             local STEEMVALUE=$(jq -r ".[$i][1].op[1] | .steem_payout " <<< ${HISTORY} | cut -f1 -d' ')
-                            local CURRENCYVALUE=$(math "$(get_historic_price STEEM ${TS} ${CURRENCY})*${STEEMVALUE}")
+                            local CURRENCYVALUE=$(math "$(get_historic_price "${STEEM_TICKER}" ${TS} ${CURRENCY})*${STEEMVALUE}")
                         else
                             SBD=$(echo ${AMOUNT} | cut -f1 -d' ')
                             local SBDVALUE=$(jq -r ".[$i][1].op[1] | .sbd_payout " <<< ${HISTORY} | cut -f1 -d' ')
-                            local CURRENCYVALUE=$(math "$(get_historic_price SBD ${TS} ${CURRENCY})*${SBDVALUE}")
+                            local CURRENCYVALUE=$(math "$(get_historic_price ${SBD_TICKER} ${TS} ${CURRENCY})*${SBDVALUE}")
                         fi
                         TOTAL=$(math "${CURRENCYVALUE}+${TOTAL}")
                         echo "$STEEM	$SBD	-	-	${CURRENCYVALUE}"
